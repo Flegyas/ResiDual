@@ -1,0 +1,51 @@
+device = "cuda"
+finetune_data = "base"
+
+encoder = @get_residual_tracer()
+encoder/get_residual_tracer.encoder_name = %encoder_name
+
+# basis_pruning = @EVRPruning()
+# EVRPruning.threshold = 0.9
+basis_pruning = None
+
+adapter = @build_residual_spectral_adapter()
+adapter/build_residual_spectral_adapter.encoder_name = %encoder_name
+adapter/build_residual_spectral_adapter.residual_types = ("head", "mlp")
+adapter/build_residual_spectral_adapter.dataset_name = "imagenet"
+adapter/build_residual_spectral_adapter.basis_pruning = %basis_pruning
+adapter/build_residual_spectral_adapter.device = %device
+adapter/build_residual_spectral_adapter.lambda_init = 'randn'
+adapter/build_residual_spectral_adapter.ablation = 'sum'
+adapter/build_residual_spectral_adapter.component_padding = 1
+
+classifier = @CentroidClassifier()
+classifier/CentroidClassifier.encoder_name = %encoder_name
+classifier/CentroidClassifier.dataset_name = %dataset_name
+
+build_optimizer.lr = 8e-1
+# build_optimizer.warmup_steps=1000
+# build_optimizer.weight_decay=0.1
+
+logger = @get_logger()
+logger/get_logger.entity = "resi_dual"
+logger/get_logger.project = "residual"
+logger/get_logger.tags = ["residual", "full", "cr"]
+
+# logger = None
+
+run.exp_type = "residual_full"
+run.dataset_name = %dataset_name
+run.batch_size = 64
+run.num_workers = 8
+run.trainer_args = {"max_epochs": 30, "fast_dev_run": False, "log_every_n_steps": 5}
+run.logger = %logger
+run.build_optimizer = @build_optimizer
+run.tune_lr = False
+run.encoder = %encoder
+run.adapter = %adapter
+run.classifier = %classifier
+run.device = %device
+run.encoder_train = False
+run.adapter_train = True
+run.classifier_train = False
+run.ckpt_dir_name = "checkpoints"

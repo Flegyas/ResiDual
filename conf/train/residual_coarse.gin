@@ -1,0 +1,45 @@
+# model_name = "openclip_l"
+# dataset_name = "gtsrb"
+
+device = "cuda"
+
+encoder = @get_residual_tracer()
+encoder/get_residual_tracer.encoder_name = %encoder_name
+
+adapter = @build_residual_coarse_adapter()
+adapter/build_residual_coarse_adapter.encoder_name = %encoder_name
+adapter/build_residual_coarse_adapter.residual_types = ["head"]
+adapter/build_residual_coarse_adapter.dataset_name = "imagenet"
+adapter/build_residual_coarse_adapter.lambda_init = 'randn'
+adapter/build_residual_coarse_adapter.ablation = 'zero'
+adapter/build_residual_coarse_adapter.l1_weight = 0
+
+classifier = @CentroidClassifier()
+classifier/CentroidClassifier.encoder_name = %encoder_name
+classifier/CentroidClassifier.dataset_name = %dataset_name
+
+build_optimizer.lr = 8e-1
+# build_optimizer.warmup_steps=1000
+# build_optimizer.weight_decay=0.1
+
+logger = @get_logger()
+logger/get_logger.entity = "resi_dual"
+logger/get_logger.project = "residual"
+logger/get_logger.tags = ["residual", "coarse", "cr"]
+
+run.exp_type = "residual_coarse"
+run.dataset_name = %dataset_name
+run.batch_size = 64
+run.num_workers = 8
+run.trainer_args = {"max_epochs": 30, "fast_dev_run": False, "log_every_n_steps": 5}
+run.logger = %logger
+run.build_optimizer = @build_optimizer
+run.tune_lr = False
+run.encoder = %encoder
+run.adapter = %adapter
+run.classifier = %classifier
+run.device = %device
+run.encoder_train = False
+run.adapter_train = True
+run.classifier_train = False
+run.ckpt_dir_name = "checkpoints"

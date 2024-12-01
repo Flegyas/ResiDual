@@ -1,0 +1,46 @@
+split = "train"
+device = "cuda"
+
+filter_fn = @diagonal_filter
+
+pruning = @threshold_pruning
+threshold_pruning.threshold = 0.9
+
+compute_spectral_distances.x_basis_pruning = %pruning
+compute_spectral_distances.y_basis_pruning = %pruning
+compute_spectral_distances.distance_fn = @normalized_spectral_cosine
+compute_spectral_distances.weighted = True
+compute_spectral_distances.filter_fn = %filter_fn
+
+exp2.datasets = [
+    "cifar10",
+    "cifar100",
+    "dtd",
+    "eurosat",
+    "gtsrb",
+    "imagenet",
+    "mnist",
+    "pacs",
+    "random",
+    "resisc45",
+    "sketch",
+    "stanford_cars",
+    "sun397",
+    "svhn",
+]
+exp2.encoders = [
+    "openclip_l",
+    "clip_l",
+    "vit_l",
+    "dinov2_l",
+    "openclip_b",
+    "clip_b",
+    "blip_l_flickr",
+]
+exp2.anchor_dataset = "imagenet"
+exp2.num_anchors = 100
+exp2.split = %split
+exp2.filter_fn = %filter_fn
+exp2.device = %device
+
+get_weights.mode = "eigs"

@@ -1,0 +1,37 @@
+encode.device = "cuda"
+encode.batch_size = 128
+encode.num_workers = 8
+encode.flush_every = 10
+encode.overwrite = False
+encode.datasets = [
+    "imagenet",
+    "gtsrb",
+    "eurosat",
+    "random",
+    "mnist",
+    "cifar10",
+    "cifar100",
+    "svhn",
+    "sun397",
+    "sketch",
+    "dtd",
+    "resisc45",
+    "stanford_cars",
+    "pacs",
+]
+encode.splits = ["val", "test", "train"]
+encode.encoder_tracer = {
+    "vit_l": "ViTTracer",
+    "dinov2_l": "Dinov2Tracer",
+    "openclip_b": "OpenCLIPTracer",
+    "openclip_l": "OpenCLIPTracer",
+    "clip_b": "OpenCLIPTracer",
+    "clip_l": "OpenCLIPTracer",
+    "blip_l_flickr": "BLIPTracer",
+}
+encode.cls_only = True
+encode.tracer_args = {
+    "raw": True,
+    "accumulate": True,
+}
+encode.check_residual = True

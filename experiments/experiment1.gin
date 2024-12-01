@@ -1,0 +1,16 @@
+exp1.datasets  = [
+    "imagenet",
+]
+
+exp1.models = [
+    "openclip_b",
+    "openclip_l",
+    "clip_b",
+    "clip_l",
+    "vit_l",
+    "dinov2_l",
+    "blip_l_flickr",
+]
+
+exp1.split = "train"
+exp1.device = "cuda:0"
