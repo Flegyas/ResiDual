@@ -75,6 +75,9 @@ def _encode(
 
             if check_residual:
                 model_out = encode_out["model_out"]
+                if model_out.ndim == 2:
+                    model_out = model_out.unsqueeze(1)
+
                 residual: Residual = encode_out["residual"]
 
                 residual_dims = residual.encoding.ndim
@@ -82,6 +85,7 @@ def _encode(
                     residual_sum = residual.encoding.sum(
                         dim=tuple(range(2, residual_dims - 1))
                     )
+                
                 assert torch.allclose(
                     model_out,
                     residual_sum,

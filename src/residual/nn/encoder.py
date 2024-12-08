@@ -3,7 +3,7 @@ from typing import Any, Callable, Mapping, Optional
 import gin
 import torch
 from torch import nn
-from transformers import BlipForImageTextRetrieval, CLIPModel
+from transformers import BlipForImageTextRetrieval
 from transformers.modeling_outputs import BaseModelOutputWithPooling
 
 
@@ -26,9 +26,20 @@ def avg_pooling(
     x: torch.Tensor, dim: int, exclude_cls: bool = True, keep_dim: bool = True
 ) -> torch.Tensor:
     if exclude_cls:
-        x = x.select(dim=dim, index=slice(1, None))
+        x = x.index_select(dim, torch.arange(1, x.size(dim), device=x.device))
 
     x = x.mean(dim=dim, keepdim=keep_dim)
+
+    return x
+
+
+@gin.configurable
+def token_selection_pooling(
+    x: torch.Tensor, dim: int, token_index: int, keep_dim: bool = True
+) -> torch.Tensor:
+    x = x.select(dim=dim, index=token_index)
+    if keep_dim:
+        x = x.unsqueeze(dim)
 
     return x
 
@@ -92,7 +103,7 @@ class OpenCLIPVisionEncoder(Encoder):
     def encode_image(self, x):
         pooled, tokens = self.model(x)
 
-        if self.pooling_fn == identity_pooling:
+        if self.pooling_fn == identity_pooling or self.pooling_fn == cls_pooling:
             return pooled
 
         tokens = tokens @ self.model.proj
@@ -156,7 +167,6 @@ class HFVisionEncoder(Encoder):
             encoding_dim = model.config.hidden_size
             vision_model = model
         else:
-            breakpoint()
             raise NotImplementedError
         super().__init__(
             name=name,
@@ -168,8 +178,10 @@ class HFVisionEncoder(Encoder):
         )
         if "blip" in name:
             self.vision_proj = model.vision_proj
-        if "clip" in name:
+        elif "clip" in name:
             self.vision_proj = model.visual_projection
+        else:
+            pass
 
     def forward(
         self,

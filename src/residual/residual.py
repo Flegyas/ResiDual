@@ -120,7 +120,7 @@ class Residual(nn.Module):
             source_dir=source_dir,
             device=device,
             offsets=offsets,
-            as_tensor=True,
+            as_tensor_device=device,
         ):
             encoding.append(unit)
 
@@ -139,7 +139,7 @@ class Residual(nn.Module):
         device: torch.device,
         offsets: Optional[Sequence[int]] = None,
         filter_fn: Optional[callable] = None,
-        as_tensor: bool = False,
+        as_tensor_device: Optional[torch.device] = None,
         token_index: Optional[int] = None,
     ) -> Generator:
         unit_type2space = {
@@ -147,9 +147,9 @@ class Residual(nn.Module):
             for unit_space_dir in source_dir.glob("*/")
             if unit_space_dir.is_dir()
         }
-        if as_tensor:
+        if as_tensor_device is not None:
             unit_type2space = {
-                unit_type: unit_space.as_tensor(device=device)[
+                unit_type: unit_space.as_tensor(device=as_tensor_device)[
                     offsets if offsets is not None else slice(None),
                     token_index if token_index is not None else slice(None),
                 ]
@@ -460,7 +460,7 @@ def get_head_basis(
         source_dir=source_dir,
         filter_fn=lambda info: info["type"] == "head",
         device=device,
-        as_tensor=True,
+        as_tensor_device=device,
     )
     for head_encoding, head_info in tqdm(stream):
         if not head_encoding.shape[1] == 1:

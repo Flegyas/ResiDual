@@ -44,7 +44,7 @@ def run(
             offsets=offsets,
             filter_fn=lambda x: x["type"] == "head",
             device=device,
-            as_tensor=True,
+            as_tensor_device=device,
         ),
         desc="Processing units",
         position=1,
