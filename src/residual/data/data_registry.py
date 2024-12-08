@@ -1426,19 +1426,18 @@ OPENAI_TEMPLATES_DTD = [
     lambda c: f"a photo of the {c} object.",
 ]
 
-
-eurosat_classes = [
-    "highway or road",
-    "permanent crop land",
-    "industrial buildings or commercial buildings",
-    "residential buildings or homes or apartments",
-    "annual crop land",
-    "forest",
-    "lake or sea",
-    "pasture land",
-    "river",
-    "brushland or shrubland",
-]
+eurosat_classname2dataset_class = {
+    "highway or road": "Highway",
+    "permanent crop land": "PermanentCrop",
+    "industrial buildings or commercial buildings": "Industrial",
+    "residential buildings or homes or apartments": "Residential",
+    "annual crop land": "AnnualCrop",
+    "forest": "Forest",
+    "lake or sea": "SeaLake",
+    "pasture land": "Pasture",
+    "river": "River",
+    "brushland or shrubland": "HerbaceousVegetation",
+}
 
 OPENAI_EUROSAT_TEMPLATES = [
     lambda c: f"a centered satellite photo of {c}.",
@@ -2099,7 +2098,7 @@ dataset2classes_templates = {
     "mnist": (mnist_classes, OPENAI_MNIST_TEMPLATES),
     "stanford_cars": (stanfordcard_classes, OPENAI_STANFORDCARS_TEMPLATES),
     "dtd": (dtd_classes, OPENAI_TEMPLATES_DTD),
-    "eurosat": (eurosat_classes, OPENAI_EUROSAT_TEMPLATES),
+    "eurosat": (list(eurosat_classname2dataset_class.keys()), OPENAI_EUROSAT_TEMPLATES),
     "resisc45": (resisc45_classes, OPENAI_RESISC45_TEMPLATES),
     "sun397": (sun397_classes, OPENAI_SUN397_TEMPLATES),
     "svhn": (svhn_classes, OPENAI_SVHN_TEMPLATES),

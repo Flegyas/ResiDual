@@ -76,7 +76,7 @@ def _encode(
                 residual: Residual = encode_out["residual"]
 
                 residual_sum = (
-                    residual.encoding.sum(dim=(1, 2))
+                    residual.encoding.sum(dim=1)
                     if residual_tracer.cls_only
                     else residual.encoding.sum(dim=2)
                 )

@@ -245,6 +245,10 @@ class CentroidClassifier(nn.Module):
         )
         self.register_buffer("centroids", class_encodings["class_encodings"])
 
+    @property
+    def num_classes(self):
+        return self.centroids.shape[1]
+
     def forward(self, x: torch.Tensor):
         centroids = self.centroids
 

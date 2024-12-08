@@ -85,7 +85,7 @@ class OpenCLIPTextEncoder(Encoder):
     ):
         super().__init__(
             name=name,
-            encoding_dim=model.output_dim,
+            encoding_dim=model.visual.output_dim,
             model=model,
             collate_fn=collate_fn,
             preprocess=preprocess,

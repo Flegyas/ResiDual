@@ -15,7 +15,10 @@ from latentis.data.processor import ImageNet
 from PIL import Image as PILImage
 from torchvision.transforms import ToPILImage
 
-from residual.data.data_registry import dataset2classes_templates
+from residual.data.data_registry import (
+    dataset2classes_templates,
+    eurosat_classname2dataset_class,
+)
 
 
 def _generate_synthetic_data(
@@ -320,7 +323,7 @@ def build_svhn():
 def build_eurosat():
     data = load_dataset("mikewang/EuroSAT", trust_remote_code=True)
 
-    class_names = list(dict.fromkeys(data["train"]["class"]))
+    class_names = list(eurosat_classname2dataset_class.values())
     data = data.cast_column(
         "class",
         ClassLabel(
