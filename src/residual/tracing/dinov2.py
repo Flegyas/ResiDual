@@ -188,6 +188,8 @@ class Dinov2Tracer(ResidualTracer):
         self, module: nn.Module, input: torch.Tensor, output: Tuple[torch.Tensor]
     ):
         raw_heads = output[0]  # (n, t, d)
+        raw_heads = self.encoder.pooling_fn(raw_heads, dim=1)
+
         raw_heads = torch.stack(raw_heads.split(self.info["head_dim"], dim=-1), dim=2)
         self._buffer["head"].append(raw_heads)
 
@@ -195,8 +197,7 @@ class Dinov2Tracer(ResidualTracer):
 
     def emb_hook(self, module: nn.Module, input: torch.Tensor, output: torch.Tensor):
         emb = output
-        if self.encoder.cls_only:
-            emb = emb[:, :1]
+        emb = self.encoder.pooling_fn(emb, dim=1)
 
         emb = emb.view(emb.size(0), emb.size(1), 1, emb.size(2))
 
@@ -208,8 +209,7 @@ class Dinov2Tracer(ResidualTracer):
         self, module: nn.Module, input: Tuple[torch.Tensor], output: BaseModelOutput
     ):
         pre_ln = input[0]
-        if self.encoder.cls_only:
-            pre_ln = pre_ln[:, :1]
+        pre_ln = self.encoder.pooling_fn(pre_ln, dim=1)
 
         self._buffer["pre_ln"].append(pre_ln)
 
@@ -219,8 +219,7 @@ class Dinov2Tracer(ResidualTracer):
         n, t, d = output.shape
         mlp = output
 
-        if self.encoder.cls_only:
-            mlp = mlp[:, :1]
+        mlp = self.encoder.pooling_fn(mlp, dim=1)
 
         mlp = mlp.view(n, mlp.shape[1], 1, d)
 

@@ -6,7 +6,7 @@ finetune_data = "base"
 
 encoder = @get_vision_encoder()
 encoder/get_vision_encoder.name = %encoder_name
-encoder/get_vision_encoder.cls_only = True
+encoder/get_vision_encoder.pooling_fn = @cls_pooling
 
 adapter = None
 

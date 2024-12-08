@@ -1,6 +1,6 @@
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Callable, Mapping, Optional, Sequence, Type
+from typing import Any, Mapping, Optional, Sequence, Type
 
 import pandas as pd
 import torch
@@ -48,8 +48,8 @@ class ResidualTracer(nn.Module, metaclass=TracerMeta):
         return self.encoder.collate_fn
 
     @property
-    def cls_only(self) -> bool:
-        return self.encoder.cls_only
+    def pooling_fn(self) -> str:
+        return self.encoder.pooling_fn
 
     def _resolve_glob(self, glob_pattern: str) -> Sequence[nn.Module]:
         """
@@ -260,9 +260,6 @@ class ResidualTracer(nn.Module, metaclass=TracerMeta):
             residual.append(unit_encodings)
         residual = torch.cat(residual, dim=2)
 
-        if self.cls_only:
-            residual = residual[:, 0, ...]
-
         return Residual(encoding=residual, encoding_info=self.residual_composition)
 
     def __enter__(self):
@@ -277,11 +274,14 @@ class ResidualTracer(nn.Module, metaclass=TracerMeta):
         return self
 
     def get_residual_units(self):
-        if self.cls_only:
-            unit_type2encodings = {
-                unit_type: [encoding[:, :1, ...] for encoding in encodings]
-                for unit_type, encodings in self._buffer.items()
-            }
+        unit_type2encodings = {
+            unit_type: encodings for unit_type, encodings in self._buffer.items()
+        }
+
+        # unit_type2encodings = {
+        #     unit_type: [encoding.mean(dim=1, keepdim=True) for encoding in encodings]
+        #     for unit_type, encodings in unit_type2encodings.items()
+        # }
 
         unit_type2encodings = {
             unit_type: torch.cat(

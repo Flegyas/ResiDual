@@ -33,8 +33,8 @@ from residual.tracing.tracer import ResidualTracer
 
 
 @gin.configurable
-def get_residual_tracer(encoder_name: str):
-    encoder: Encoder = get_vision_encoder(name=encoder_name, cls_only=True)
+def get_residual_tracer(encoder_name: str, pooling_fn: Callable):
+    encoder: Encoder = get_vision_encoder(name=encoder_name, pooling_fn=pooling_fn)
 
     tracer_cls: ResidualTracer = encoder_name2tracer[encoder_name]
 

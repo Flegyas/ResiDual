@@ -478,6 +478,7 @@ def forward_MHA_traced(
                 .permute(1, 0, 2, 3)  # num_samples, num_tokens, num_heads, head_dim
                 .detach()
             )
+            heads_raw = tracer.encoder.pooling_fn(heads_raw, dim=1)
 
             tracer._buffer["head"].append(heads_raw)
         attn_output = linear(

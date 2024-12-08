@@ -1,6 +1,6 @@
 from collections import defaultdict
 from functools import partial
-from typing import Any, Mapping, Type
+from typing import Any, Callable, Mapping, Type
 
 import gin
 import open_clip
@@ -14,6 +14,7 @@ from transformers import (
     BaseImageProcessor,
     BlipForImageTextRetrieval,
     BlipProcessor,
+    CLIPModel,
     PreTrainedModel,
     ViTImageProcessor,
     ViTModel,
@@ -175,7 +176,7 @@ def _collate_fn_image(samples, preprocess, library: str):
 
 
 @gin.configurable
-def get_vision_encoder(name: str, cls_only: bool = False) -> Encoder:
+def get_vision_encoder(name: str, pooling_fn: Callable) -> Encoder:
     if name not in modality2model_name2entry["vision"]:
         raise ValueError(f"Model {name} not supported in registry")
 
@@ -192,23 +193,19 @@ def get_vision_encoder(name: str, cls_only: bool = False) -> Encoder:
     )
 
     if library == "open_clip":
-        return OpenCLIPVisionEncoder(
-            name=name,
-            model=model,
-            preprocess=processor,
-            collate_fn=collate_fn,
-            cls_only=cls_only,
-        )
+        encoder_cls = OpenCLIPVisionEncoder
     elif library == "transformers":
-        return HFVisionEncoder(
-            name=name,
-            model=model,
-            preprocess=processor,
-            collate_fn=collate_fn,
-            cls_only=cls_only,
-        )
+        encoder_cls = HFVisionEncoder
     else:
         raise ValueError(f"Library {library} not supported")
+
+    return encoder_cls(
+        name=name,
+        model=model,
+        preprocess=processor,
+        collate_fn=collate_fn,
+        pooling_fn=pooling_fn,
+    )
 
 
 model_names = {
@@ -275,6 +272,16 @@ modality2model_name2entry["text"]["blip_l_flickr"] = dict(
         processor_kwargs=dict(padding=True, return_tensors="pt"),
     ),
 )
+modality2model_name2entry["text"]["hf_clip_l"] = dict(
+    library="transformers",
+    load_modules_fn=partial(
+        load_hf,
+        hf_name="openai/clip-vit-large-patch14-336",
+        processor_cls=AutoTokenizer,
+        model_cls=CLIPModel,
+        processor_kwargs=dict(padding=True, return_tensors="pt"),
+    ),
+)
 
 
 @gin.configurable
@@ -298,6 +305,7 @@ def get_text_encoder(name: str) -> Encoder:
             model=model,
             preprocess=processor,
             collate_fn=collate_fn,
+            pooling_fn=None,
         )
     elif library == "transformers":
         return HFTextEncoder(
@@ -305,6 +313,7 @@ def get_text_encoder(name: str) -> Encoder:
             model=model,
             preprocess=processor,
             collate_fn=collate_fn,
+            pooling_fn=...,
         )
     else:
         raise ValueError(f"Library {library} not supported")

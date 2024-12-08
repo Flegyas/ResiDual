@@ -2,7 +2,7 @@ device = "cuda"
 
 encoder = @get_vision_encoder()
 encoder/get_vision_encoder.name = %encoder_name
-encoder/get_vision_encoder.cls_only = True
+encoder/get_vision_encoder.pooling_fn = @cls_pooling
 
 adapter = @build_proj_out_adapter()
 adapter/build_proj_out_adapter.encoder = %encoder

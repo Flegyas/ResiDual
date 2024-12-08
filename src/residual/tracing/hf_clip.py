@@ -155,26 +155,21 @@ class HFCLIPOutProj(OutputProj):
                 raw_head_encoding=unit_encoding,
                 head_index=head_idx,
                 num_heads=self.num_heads_per_layer,
-                out_proj_weight=mha_out_proj.dense.weight,
-                out_proj_bias=mha_out_proj.dense.bias,
+                out_proj_weight=mha_out_proj.weight,
+                out_proj_bias=mha_out_proj.bias,
             )
-
-            unit_encoding = self.layer_scale1s[layer_idx](unit_encoding)
-
-        unit_norm = (
-            self.unit_normalization_factor
-            if unit_type != "head"
-            else self.head_normalization_factor
-        )
-
-        unit_encoding = apply_ln_residual(
-            x=unit_encoding,
-            mean=self.preln_mean,
-            std=self.preln_std,
-            gamma=self.final_ln.weight,
-            beta=self.final_ln.bias,
-            eps=self.final_ln.eps,
-            norm=unit_norm,
+        unit_encoding = self.final_projection(
+            apply_ln_residual(
+                x=unit_encoding,
+                mean=self.preln_mean,
+                std=self.preln_std,
+                gamma=self.final_ln.weight,
+                beta=self.final_ln.bias,
+                eps=self.final_ln.eps,
+                norm=self.unit_normalization_factor
+                if unit_type != "head"
+                else self.head_normalization_factor,
+            )
         )
 
         return unit_encoding
@@ -188,6 +183,8 @@ class HFCLIPTracer(ResidualTracer):
         self, module: nn.Module, input: torch.Tensor, output: Tuple[torch.Tensor]
     ):
         raw_heads = input[0]  # (n, t, d)
+        raw_heads = self.encoder.pooling_fn(raw_heads, dim=1)
+
         raw_heads = torch.stack(raw_heads.split(self.info["head_dim"], dim=-1), dim=2)
         self._buffer["head"].append(raw_heads)
 
@@ -195,8 +192,7 @@ class HFCLIPTracer(ResidualTracer):
 
     def emb_hook(self, module: nn.Module, input: torch.Tensor, output: torch.Tensor):
         emb = output
-        if self.encoder.cls_only:
-            emb = emb[:, :1]
+        emb = self.encoder.pooling_fn(emb, dim=1)
 
         emb = emb.view(emb.size(0), emb.size(1), 1, emb.size(2))
 
@@ -208,6 +204,8 @@ class HFCLIPTracer(ResidualTracer):
         self, module: nn.Module, input: Tuple[torch.Tensor], output: BaseModelOutput
     ):
         pre_ln = output.last_hidden_state
+        pre_ln = self.encoder.pooling_fn(pre_ln, dim=1)
+
         self._buffer["pre_ln"].append(pre_ln)
 
         return output
@@ -216,8 +214,7 @@ class HFCLIPTracer(ResidualTracer):
         n, t, d = output.shape
         mlp = output
 
-        if self.encoder.cls_only:
-            mlp = mlp[:, :1]
+        mlp = self.encoder.pooling_fn(mlp, dim=1)
 
         mlp = mlp.view(n, mlp.shape[1], 1, d)
 

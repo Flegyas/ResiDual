@@ -1,23 +1,24 @@
 encode.device = "cuda"
 encode.batch_size = 128
+encode.batch_limit = 5
 encode.num_workers = 8
 encode.flush_every = 10
 encode.overwrite = False
 encode.datasets = [
-    "imagenet",
+    # "imagenet",
     "gtsrb",
     "eurosat",
-    "random",
-    "mnist",
-    "cifar10",
-    "cifar100",
-    "svhn",
-    "sun397",
-    "sketch",
+    # "random",
+    # "mnist",
+    # "cifar10",
+    # "cifar100",
+    # "svhn",
+    # "sun397",
+    # "sketch",
     "dtd",
-    "resisc45",
-    "stanford_cars",
-    "pacs",
+    # "resisc45",
+    # "stanford_cars",
+    # "pacs",
 ]
 encode.splits = ["val", "test", "train"]
 encode.encoder_tracer = {
@@ -28,8 +29,9 @@ encode.encoder_tracer = {
     "clip_b": "OpenCLIPTracer",
     "clip_l": "OpenCLIPTracer",
     "blip_l_flickr": "BLIPTracer",
+    "hf_clip_l": "HFCLIPTracer",
 }
-encode.cls_only = True
+encode.pooling_fn = @cls_pooling
 encode.tracer_args = {
     "raw": True,
     "accumulate": True,

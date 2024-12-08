@@ -191,8 +191,7 @@ class BLIPTracer(ResidualTracer):
     def head_hook(self, module: nn.Module, input: torch.Tensor, output: torch.Tensor):
         raw_heads = input[0]  # (n, t, d)
 
-        if self.encoder.cls_only:
-            raw_heads = raw_heads[:, :1]
+        raw_heads = self.encoder.pooling_fn(raw_heads, dim=1)
 
         raw_heads = torch.stack(raw_heads.split(self.info["head_dim"], dim=-1), dim=2)
 
@@ -202,8 +201,7 @@ class BLIPTracer(ResidualTracer):
 
     def emb_hook(self, module: nn.Module, input: torch.Tensor, output: torch.Tensor):
         emb = output
-        if self.encoder.cls_only:
-            emb = emb[:, :1]
+        emb = self.encoder.pooling_fn(emb, dim=1)
 
         emb = emb.view(emb.size(0), emb.size(1), 1, emb.size(2))
 
@@ -216,8 +214,7 @@ class BLIPTracer(ResidualTracer):
     ):
         pre_ln = output.last_hidden_state
 
-        if self.encoder.cls_only:
-            pre_ln = pre_ln[:, :1]
+        pre_ln = self.encoder.pooling_fn(pre_ln, dim=1)
 
         self._buffer["pre_ln"].append(pre_ln)
 
@@ -227,8 +224,7 @@ class BLIPTracer(ResidualTracer):
         n, t, d = output.shape
         mlp = output
 
-        if self.encoder.cls_only:
-            mlp = mlp[:, :1]
+        mlp = self.encoder.pooling_fn(mlp, dim=1)
 
         mlp = mlp.view(n, mlp.shape[1], 1, d)
 
@@ -262,10 +258,10 @@ class BLIPTracer(ResidualTracer):
             accumulate=accumulate,
             glob2fn=(
                 {
-                    "model.vision_model.embeddings": self.emb_hook,
-                    "model.vision_model.encoder.layers.*.mlp": self.mlp_hook,
-                    "model.vision_model.encoder.layers.*.self_attn.projection": self.head_hook,
-                    "model.vision_model.encoder": self.pre_ln_hook,
+                    "model.embeddings": self.emb_hook,
+                    "model.encoder.layers.*.mlp": self.mlp_hook,
+                    "model.encoder.layers.*.self_attn.projection": self.head_hook,
+                    "model.encoder": self.pre_ln_hook,
                 }
             ),
             target_dir=target_dir,

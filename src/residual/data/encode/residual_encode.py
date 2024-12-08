@@ -2,7 +2,7 @@ import argparse
 import itertools
 import shutil
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence, Type
+from typing import Any, Callable, Mapping, Optional, Sequence, Type
 
 import gin
 import torch
@@ -49,6 +49,7 @@ def _encode(
     device: str = "cuda",
     tracer_args: Mapping[str, Any] = {},
     check_residual: bool = True,
+    batch_limit: Optional[int] = None,
 ):
     with tracer_type(
         module_name=model_name,
@@ -60,8 +61,9 @@ def _encode(
         residual_tracer: ResidualTracer
 
         for i, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
-            # if i == 20:
-            #     break
+            if batch_limit is not None and i >= batch_limit:
+                break
+
             x = batch["x"]
             # y = batch["y"]
             encode_out = residual_tracer.encode(
@@ -75,11 +77,11 @@ def _encode(
                 model_out = encode_out["model_out"]
                 residual: Residual = encode_out["residual"]
 
-                residual_sum = (
-                    residual.encoding.sum(dim=1)
-                    if residual_tracer.cls_only
-                    else residual.encoding.sum(dim=2)
-                )
+                residual_dims = residual.encoding.ndim
+                if residual_dims > 3:
+                    residual_sum = residual.encoding.sum(
+                        dim=tuple(range(2, residual_dims - 1))
+                    )
                 assert torch.allclose(
                     model_out,
                     residual_sum,
@@ -90,7 +92,7 @@ def _encode(
 @gin.configurable
 def encode(
     encoder_tracer: Mapping[str, str],
-    cls_only: bool,
+    pooling_fn: Callable,
     datasets: Sequence[str],
     splits: Sequence[str],
     overwrite: bool,
@@ -101,6 +103,7 @@ def encode(
     tracer_args: Mapping[str, Any] = {},
     check_residual: bool = False,
     root_dir: Optional[Path] = None,
+    batch_limit: Optional[int] = None,
 ):
     if root_dir is None:
         root_dir = PROJECT_ROOT / "encodings"
@@ -123,7 +126,7 @@ def encode(
             else:
                 shutil.rmtree(target_dir)
 
-        encoder = get_vision_encoder(name=encoder_name, cls_only=cls_only)
+        encoder = get_vision_encoder(name=encoder_name, pooling_fn=pooling_fn)
 
         device = torch.device(device)
 
@@ -174,6 +177,7 @@ def encode(
             device=device,
             target_dir=target_dir,
             check_residual=check_residual,
+            batch_limit=batch_limit,
         )
 
         pbar.update(1)

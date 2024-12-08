@@ -189,7 +189,6 @@ class OpenCLIPOutputProj(OutputProj):
                 out_proj_weight=mha_out_proj.weight,
                 out_proj_bias=mha_out_proj.bias,
             )
-
         unit_encoding = (
             apply_ln_residual(
                 x=unit_encoding,
@@ -225,8 +224,7 @@ class OpenCLIPTracer(ResidualTracer):
 
     def emb_hook(self, module: nn.Module, input: torch.Tensor, output: torch.Tensor):
         emb = output
-        if self.encoder.cls_only:
-            emb = emb[:, :1]
+        emb = self.encoder.pooling_fn(emb, dim=1)
 
         emb = emb.view(emb.size(0), emb.size(1), 1, emb.size(2))
 
@@ -236,8 +234,7 @@ class OpenCLIPTracer(ResidualTracer):
 
     def pre_ln_hook(self, module: nn.Module, input: torch.Tensor, output: torch.Tensor):
         pre_ln = input[0]
-        if self.encoder.cls_only:
-            pre_ln = pre_ln[:, :1]
+        pre_ln = self.encoder.pooling_fn(pre_ln, dim=1)
 
         self._buffer["pre_ln"].append(pre_ln)
 
@@ -245,8 +242,7 @@ class OpenCLIPTracer(ResidualTracer):
 
     def mlp_hook(self, module: nn.Module, input: torch.Tensor, output: torch.Tensor):
         mlp = output
-        if self.encoder.cls_only:
-            mlp = mlp[:, :1]
+        mlp = self.encoder.pooling_fn(mlp, dim=1)
 
         mlp = mlp.view(mlp.size(0), mlp.size(1), 1, mlp.size(2))
 
