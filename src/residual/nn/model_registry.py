@@ -106,6 +106,15 @@ modality2model_name2entry["vision"]["dinov2_l"] = dict(
         model_cls=AutoModel,
     ),
 )
+modality2model_name2entry["vision"]["hf_clip_l"] = dict(
+    library="transformers",
+    load_modules_fn=partial(
+        load_hf,
+        hf_name="openai/clip-vit-large-patch14-336",
+        processor_cls=AutoImageProcessor,
+        model_cls=AutoModel,
+    ),
+)
 
 # OpenCLIP models
 modality2model_name2entry["vision"]["openclip_b"] = dict(

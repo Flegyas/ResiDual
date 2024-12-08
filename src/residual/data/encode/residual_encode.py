@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 from residual.data.dataset import get_dataset
 from residual.data.encode import ENCODINGS_DIR
-from residual.nn.encoder import Encoder
+from residual.nn.encoder import Encoder, HFVisionEncoder
 from residual.nn.model_registry import get_vision_encoder
 from residual.residual import Residual
 from residual.tracing.tracer import ResidualTracer, get_registered_tracer
@@ -83,7 +83,7 @@ def _encode(
                 assert torch.allclose(
                     model_out,
                     residual_sum,
-                    atol=1e-5 if "dino" not in model_name else 1e-4,
+                    atol=1e-5 if not isinstance(encoder, HFVisionEncoder) else 1e-4,
                 )
 
 

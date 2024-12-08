@@ -1,3 +1,4 @@
+from .hf_clip import HFCLIPTracer
 from .blip import BLIPTracer
 from .dinov2 import Dinov2Tracer
 from .openclip import OpenCLIPTracer
@@ -11,6 +12,7 @@ encoder_name2tracer = {
     "clip_b": OpenCLIPTracer,
     "clip_l": OpenCLIPTracer,
     "vit_l": ViTTracer,
+    "hf_clip_l": HFCLIPTracer,
 }
 
 __all__ = [
@@ -18,5 +20,6 @@ __all__ = [
     "Dinov2Tracer",
     "OpenCLIPTracer",
     "ViTTracer",
+    "HFCLIPTracer",
     "encoder_name2tracer",
 ]

@@ -2,6 +2,7 @@ from typing import Any, Callable, Mapping
 
 import torch
 from torch import nn
+from transformers.models.clip.configuration_clip import CLIPConfig
 
 
 class Encoder(nn.Module):
@@ -116,14 +117,20 @@ class HFVisionEncoder(Encoder):
     ):
         super().__init__(
             name=name,
-            encoding_dim=model.config.image_text_hidden_size,
-            model=model if "blip" not in name else model.vision_model,
+            encoding_dim=model.config.image_text_hidden_size
+            if not isinstance(model.config, CLIPConfig)
+            else model.config.vision_config.projection_dim,
+            model=model
+            if ("blip" not in name and "clip" not in name)
+            else model.vision_model,
             collate_fn=collate_fn,
             preprocess=preprocess,
             cls_only=cls_only,
         )
         if "blip" in name:
             self.vision_proj = model.vision_proj
+        if "clip" in name:
+            self.vision_proj = model.visual_projection
 
     def forward(
         self,
@@ -134,6 +141,13 @@ class HFVisionEncoder(Encoder):
             vision_out = vision_out["last_hidden_state"][
                 :, 0 if self.cls_only else slice(None)
             ]
+            return self.vision_proj(vision_out)
+        elif "clip" in self.name:
+            vision_out = self.model(x, return_dict=True)
+            vision_out = vision_out["last_hidden_state"][
+                :, 0 if self.cls_only else slice(None)
+            ]
+            vision_out = self.model.post_layernorm(vision_out)
             return self.vision_proj(vision_out)
         else:
             out = self.model(x, output_hidden_states=True, output_attentions=False)

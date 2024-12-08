@@ -1,6 +1,6 @@
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence, Type
+from typing import Any, Callable, Mapping, Optional, Sequence, Type
 
 import pandas as pd
 import torch
@@ -273,10 +273,6 @@ class ResidualTracer(nn.Module, metaclass=TracerMeta):
         ]
 
         self._enter()
-
-        # self.symbolic_traced: torch.fx.GraphModule = fx.symbolic_trace(
-        #     self.encoder, concrete_args={"cls_only": self.cls_only}
-        # )
 
         return self
 
