@@ -3,9 +3,8 @@ from typing import Any, Callable, Mapping, Optional
 import gin
 import torch
 from torch import nn
-from transformers import CLIPModel
+from transformers import BlipForImageTextRetrieval, CLIPModel
 from transformers.modeling_outputs import BaseModelOutputWithPooling
-from transformers.models.clip.configuration_clip import CLIPConfig
 
 
 def identity_pooling(x, *args, **kwargs):
@@ -146,14 +145,23 @@ class HFVisionEncoder(Encoder):
         preprocess: Callable,
         pooling_fn: Optional[Callable] = None,
     ):
+        if "blip" in name:
+            model: BlipForImageTextRetrieval
+            encoding_dim = model.config.vision_config.hidden_size
+            vision_model = model.vision_model
+        elif "clip" in name:
+            encoding_dim = model.config.projection_dim
+            vision_model = model.vision_model
+        elif "vit" in name or "dinov2" in name:
+            encoding_dim = model.config.hidden_size
+            vision_model = model
+        else:
+            breakpoint()
+            raise NotImplementedError
         super().__init__(
             name=name,
-            encoding_dim=model.config.hidden_size
-            if not isinstance(model, CLIPModel)
-            else model.config.vision_config.projection_dim,
-            model=model
-            if ("blip" not in name and "clip" not in name)
-            else model.vision_model,
+            encoding_dim=encoding_dim,
+            model=vision_model,
             collate_fn=collate_fn,
             preprocess=preprocess,
             pooling_fn=pooling_fn,
@@ -206,7 +214,7 @@ class HFTextEncoder(Encoder):
         pooling_fn: Optional[Callable] = None,
     ):
         if "blip" in name:
-            encoding_dim = model.config.hidden_size
+            encoding_dim = model.config.vision_config.hidden_size
             text_model = model.text_encoder
         elif "clip" in name:
             encoding_dim = model.config.projection_dim
@@ -230,12 +238,14 @@ class HFTextEncoder(Encoder):
             raise NotImplementedError
 
     def forward(self, x) -> torch.Tensor:
-        # encodings = self.model(**x, output_hidden_states=False)[1][
-        #     :, 0 if self.cls_only else slice(None)
-        # ]
-        encodings: BaseModelOutputWithPooling = self.model(
-            **x, output_hidden_states=False
-        ).pooler_output
+        if "blip" in self.name:
+            encodings = self.model(**x, output_hidden_states=False).last_hidden_state[
+                :, 0, ...
+            ]
+        else:
+            encodings: BaseModelOutputWithPooling = self.model(
+                **x, output_hidden_states=False
+            ).pooler_output
 
         encodings = self.text_proj(encodings)
         return encodings
