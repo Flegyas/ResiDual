@@ -187,19 +187,20 @@ class HFVisionEncoder(Encoder):
         self,
         x,
     ) -> torch.Tensor:
+        output = None
         if "blip" in self.name:
             vision_out = self.model(x, return_dict=True)
             vision_out = vision_out["last_hidden_state"]
             vision_out = self.pooling_fn(vision_out, dim=1)
 
-            return self.vision_proj(vision_out)
+            output = self.vision_proj(vision_out)
         elif "clip" in self.name:
             vision_out = self.model(x, return_dict=True)
             vision_out = vision_out["last_hidden_state"]
             vision_out = self.pooling_fn(vision_out, dim=1)
             vision_out = self.model.post_layernorm(vision_out)
 
-            return self.vision_proj(vision_out)
+            output = self.vision_proj(vision_out)
         else:
             vision_out = self.model(
                 x, output_hidden_states=True, output_attentions=False
@@ -207,7 +208,9 @@ class HFVisionEncoder(Encoder):
             vision_out = vision_out["last_hidden_state"]
             vision_out = self.pooling_fn(vision_out, dim=1)
 
-            return vision_out
+            output = vision_out
+
+        return output.squeeze(dim=1)
 
     def encode_image(self, x):
         return self(x)

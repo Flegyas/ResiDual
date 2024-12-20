@@ -200,7 +200,7 @@ class ResidualTracer(nn.Module, metaclass=TracerMeta):
             keys=None,
             flush=False,
             return_residual=True,
-        )["residual"].encoding
+        )["residual"].encoding.squeeze(dim=1)
 
     def encode(
         self,

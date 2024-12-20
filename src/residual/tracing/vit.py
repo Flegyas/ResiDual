@@ -217,10 +217,10 @@ class ViTTracer(ResidualTracer):
         self,
         module_name: str,
         encoder: HFVisionEncoder,
-        metadata: Mapping[str, Any],
-        dataset_size: int,
         raw: bool,
         accumulate: bool,
+        dataset_size: int = None,
+        metadata: Mapping[str, Any] = None,
         target_dir: Optional[Path] = None,
     ) -> None:
         self.info = model_name2info[module_name]

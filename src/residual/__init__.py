@@ -9,6 +9,10 @@ from rich.traceback import Traceback
 
 from .tracing.tracer import ResidualTracer
 
+import lovely_tensors as lt
+
+lt.monkey_patch()
+
 
 class NNRichHandler(RichHandler):
     def render(

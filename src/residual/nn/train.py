@@ -19,6 +19,7 @@ from torch.nn import ModuleDict
 from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
 
+from transformers import ViTForImageClassification
 import wandb
 from residual.data.dataset import get_dataset
 from residual.nn.adapter import (
@@ -244,6 +245,36 @@ class CentroidClassifier(nn.Module):
             weights_only=True,
         )
         self.register_buffer("centroids", class_encodings["class_encodings"])
+
+    @property
+    def num_classes(self):
+        return self.centroids.shape[1]
+
+    def forward(self, x: torch.Tensor):
+        centroids = self.centroids
+
+        # x = F.normalize(x, p=2, dim=-1)
+
+        return x @ centroids
+
+
+@gin.configurable
+class ViTClassifier(nn.Module):
+    @classmethod
+    def from_tensor(cls, centroids: torch.Tensor):
+        model = cls.__new__(cls)
+        super(ViTClassifier, model).__init__()
+        model.register_buffer("centroids", centroids)
+        return model
+
+    def __init__(
+        self,
+        encoder_name: str,
+    ):
+        super().__init__()
+        vit_model = ViTForImageClassification.from_pretrained(encoder_name)
+        class_encodings = vit_model.classifier.weight.T
+        self.register_buffer("centroids", class_encodings)
 
     @property
     def num_classes(self):

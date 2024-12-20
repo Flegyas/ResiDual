@@ -22,16 +22,24 @@ encode.datasets = [
 ]
 encode.splits = ["val", "test", "train"]
 encode.encoder_tracer = {
-    "vit_l": "ViTTracer",
-    "dinov2_l": "Dinov2Tracer",
-    "openclip_b": "OpenCLIPTracer",
+    # "vit_l": "ViTTracer",
+    # "dinov2_l": "Dinov2Tracer",
+    # "openclip_b": "OpenCLIPTracer",
     "openclip_l": "OpenCLIPTracer",
-    "clip_b": "OpenCLIPTracer",
-    "clip_l": "OpenCLIPTracer",
-    "blip_l_flickr": "BLIPTracer",
+    # "clip_b": "OpenCLIPTracer",
+    # "clip_l": "OpenCLIPTracer",
+    # "blip_l_flickr": "BLIPTracer",
     "hf_clip_l": "HFCLIPTracer",
 }
-encode.pooling_fn = @cls_pooling
+# encode.pooling_fn = None
+
+encode.pooling_fn = @avg_pooling
+
+# encode.pooling_fn = @cls_pooling
+
+# encode.pooling_fn = @token_selection_pooling
+# token_selection_pooling.token_index = 17
+
 encode.tracer_args = {
     "raw": True,
     "accumulate": True,

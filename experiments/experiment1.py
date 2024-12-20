@@ -42,7 +42,7 @@ def run(
         Residual.stream(
             source_dir=residual_dir,
             offsets=offsets,
-            filter_fn=lambda x: x["type"] == "head",
+            # filter_fn=lambda x: x["type"] == "head",
             device=device,
             as_tensor_device=device,
         ),
@@ -67,7 +67,7 @@ def run(
         layer_idx = unit_info["layer_idx"]
         head_idx = unit_info["head_idx"]
 
-        result[(layer_idx, head_idx, "head")] = dict(
+        result[(layer_idx, head_idx, unit_info["type"])] = dict(
             pca_s=unit_pca["weights"].cpu(),
             pca_evr=unit_pca["explained_variance_ratio"].cpu(),
             id_twonn=unit_id_twonn.item(),
