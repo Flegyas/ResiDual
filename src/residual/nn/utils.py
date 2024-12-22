@@ -40,10 +40,13 @@ def pca_fn(
     result = {}
     result["components"] = components
 
-    # Optionally return the singular values (weights)
+    # Optionally return the singular values (weights) and eigenvalues
     if return_weights:
-        weights = S[:k]
-        result["weights"] = weights
+        singular_values = S[:k]
+        result["weights"] = singular_values
+
+        eigenvalues = (singular_values ** 2) / (x.shape[0] - 1)
+        result["eigenvalues"] = eigenvalues
 
     # Optionally return the explained variance and explained variance ratio
     if return_variance:

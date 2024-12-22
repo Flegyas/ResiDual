@@ -43,7 +43,6 @@ def get_residual_tracer(encoder_name: str, pooling_fn: Callable):
         module_name=encoder.name,
         encoder=encoder,
         raw=False,
-        accumulate=False,
     )
     tracer.__enter__()
     return tracer
@@ -260,32 +259,20 @@ class CentroidClassifier(nn.Module):
 
 @gin.configurable
 class ViTClassifier(nn.Module):
-    @classmethod
-    def from_tensor(cls, centroids: torch.Tensor):
-        model = cls.__new__(cls)
-        super(ViTClassifier, model).__init__()
-        model.register_buffer("centroids", centroids)
-        return model
-
     def __init__(
         self,
         encoder_name: str,
     ):
         super().__init__()
         vit_model = ViTForImageClassification.from_pretrained(encoder_name)
-        class_encodings = vit_model.classifier.weight.T
-        self.register_buffer("centroids", class_encodings)
+        self.linear: nn.Linear = vit_model.classifier
 
     @property
     def num_classes(self):
-        return self.centroids.shape[1]
+        return self.linear.weight.shape[1]
 
     def forward(self, x: torch.Tensor):
-        centroids = self.centroids
-
-        # x = F.normalize(x, p=2, dim=-1)
-
-        return x @ centroids
+        return self.linear(x)
 
 
 @gin.configurable

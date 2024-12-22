@@ -151,7 +151,10 @@ class ResiDual(Adapter):
         all_basis_components = basis_lengths.sum()
         lambdas = None
         if isinstance(lambda_init, torch.Tensor):
-            assert lambda_init.numel == all_basis_components
+            assert lambda_init.numel() == all_basis_components, (
+                lambda_init.numel(),
+                all_basis_components,
+            )
             lambdas = lambda_init
         elif isinstance(lambda_init, str):
             if lambda_init == "randn":
@@ -417,11 +420,13 @@ def build_residual_spectral_adapter(
             k=residual_shapes[unit_info["type"]][-1],
             return_variance=True,
             return_mean=True,
+            return_weights=True,
         )
         for unit_encoding, unit_info in stream
     }
     unit_bases = []
     unit_means = []
+    unit_lambdas = None if lambda_init != "eigen" else torch.empty(0, device=device)
 
     basis_lengths = []
     for _unit_idx, unit_pca in unit_index2pca.items():
@@ -430,6 +435,9 @@ def build_residual_spectral_adapter(
         unit_bases.append(unit_pca["components"])
         unit_means.append(unit_pca["mean"])
         basis_lengths.append(k)
+
+        if lambda_init == "eigen":
+            unit_lambdas = torch.cat([unit_lambdas, unit_pca["weights"][:k]])
 
     unit_bases = pad_sequence(
         [unit_pca["components"] for unit_pca in unit_index2pca.values()],
@@ -452,7 +460,7 @@ def build_residual_spectral_adapter(
         means=unit_means,
         tune_lambdas=tune_lambdas,
         component_padding=component_padding,
-        lambda_init=lambda_init,
+        lambda_init=lambda_init if lambda_init != "eigen" else unit_lambdas,
         ablation=ablation,
         properties={
             "ablation": ablation,
