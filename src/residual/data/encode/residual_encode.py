@@ -1,65 +1,30 @@
 import argparse
 import itertools
-import shutil
 from pathlib import Path
 from typing import Any, Callable, Mapping, Optional, Sequence, Type
 
 import gin
 import torch
 from latentis import PROJECT_ROOT
-from latentis.space import Space
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
 from residual.data.dataset import get_dataset
-from residual.data.encode import ENCODINGS_DIR
 from residual.nn.encoder import Encoder, HFVisionEncoder
 from residual.nn.model_registry import get_vision_encoder
 from residual.residual import Residual
 from residual.tracing.tracer import ResidualTracer, get_registered_tracer
-
-
-def clean_dirs():
-    for directory in ENCODINGS_DIR.iterdir():
-        if directory.is_file():
-            continue
-
-        for encodings_dir in directory.glob("*/*"):
-            encodings_data = list(encodings_dir.glob("*"))
-
-            encodings_data = [f for f in encodings_data if f.is_dir()]
-            for space in encodings_data:
-                try:
-                    Space.load_from_disk(space)
-                except Exception as e:
-                    print(f"Removing {encodings_dir} because of {e}")
-                    # shutil.rmtree(encodings_dir)
-                    break
+from residual.tracing.tracing_op import TracingOp
 
 
 @torch.no_grad()
 def _encode(
-    model_name: str,
-    encoder: Encoder,
-    tracer_type: Type[ResidualTracer],
-    dataset_size: int,
+    residual_tracer: ResidualTracer,
     dataloader: DataLoader,
-    flush_every: int,
-    target_dir: Path,
     device: str = "cuda",
-    tracer_args: Mapping[str, Any] = {},
     check_residual: bool = True,
     batch_limit: Optional[int] = None,
 ):
-    with tracer_type(
-        module_name=model_name,
-        encoder=encoder,
-        target_dir=target_dir,
-        dataset_size=dataset_size,
-        **tracer_args,
-    ) as residual_tracer:
-        residual_tracer: ResidualTracer
-
+    with residual_tracer:
         for i, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
             if batch_limit is not None and i >= batch_limit:
                 break
@@ -68,7 +33,6 @@ def _encode(
             # y = batch["y"]
             encode_out = residual_tracer.encode(
                 x=x.to(device),
-                flush=i % flush_every == 0,
                 return_residual=check_residual,
                 keys=batch["sample_id"],
             )
@@ -85,11 +49,13 @@ def _encode(
                     residual_sum = residual.encoding.sum(
                         dim=tuple(range(2, residual_dims - 1))
                     )
-                
+
                 assert torch.allclose(
                     model_out,
                     residual_sum,
-                    atol=1e-5 if not isinstance(encoder, HFVisionEncoder) else 1e-4,
+                    atol=1e-5
+                    if not isinstance(residual_tracer.encoder, HFVisionEncoder)
+                    else 1e-4,
                 )
 
 
@@ -99,36 +65,25 @@ def encode(
     pooling_fn: Callable,
     datasets: Sequence[str],
     splits: Sequence[str],
-    overwrite: bool,
     batch_size: int,
-    flush_every: int,
     num_workers: int,
     device: str,
     tracer_args: Mapping[str, Any] = {},
     check_residual: bool = False,
+    tracer_ops: Sequence[Type[TracingOp]] = None,
     root_dir: Optional[Path] = None,
     batch_limit: Optional[int] = None,
 ):
     if root_dir is None:
         root_dir = PROJECT_ROOT / "encodings"
 
+    tracer_ops = tracer_ops or []
+
     pbar = tqdm(total=len(encoder_tracer) * len(datasets) * len(splits))
     for (encoder_name, tracer_name), dataset_name, split in itertools.product(
         encoder_tracer.items(), datasets, splits
     ):
         pbar.set_description(f"{encoder_name} {dataset_name} {split}")
-
-        target_dir = root_dir / dataset_name / split / f"{encoder_name}"
-        if (
-            target_dir.exists()
-            and target_dir.is_dir()
-            and any(target_dir.glob("**/*") or [])
-        ):
-            if not overwrite:
-                print(f"Directory {target_dir} already exists. Skipping.")
-                continue
-            else:
-                shutil.rmtree(target_dir)
 
         encoder = get_vision_encoder(name=encoder_name, pooling_fn=pooling_fn)
 
@@ -147,39 +102,25 @@ def encode(
         encoder: Encoder = encoder.to(device)
         encoder.eval()
 
-        target_dir.mkdir(parents=True, exist_ok=True)
-
         _tracer_args = tracer_args.copy()
-        if "metadata" not in _tracer_args:
-            _tracer_args["metadata"] = {
-                "dataset": dataset_name,
-                "split": split,
-                "encoder": encoder_name,
-            }
-        else:
-            if "dataset" in _tracer_args["metadata"]:
-                raise ValueError("metadata should not already contain 'dataset' key")
-            if "split" in _tracer_args["metadata"]:
-                raise ValueError("metadata should not already contain 'split' key")
-            if "model" in _tracer_args["metadata"]:
-                raise ValueError("metadata should not already contain 'model' key")
-
-            _tracer_args["metadata"].update(
-                {"dataset": dataset_name, "split": split, "model": encoder_name}
-            )
+        metadata = {
+            "dataset": dataset_name,
+            "split": split,
+            "encoder": encoder_name,
+            "dataset_size": dataset_size,
+        }
 
         tracer_type = get_registered_tracer(name=tracer_name)
 
         _encode(
-            encoder=encoder,
-            model_name=encoder_name,
-            dataset_size=dataset_size,
+            residual_tracer=tracer_type(
+                module_name=encoder_name,
+                encoder=encoder,
+                tracer_ops=[tracer_op(metadata=metadata) for tracer_op in tracer_ops],
+                **_tracer_args,
+            ),
             dataloader=dataloader,
-            flush_every=flush_every,
-            tracer_type=tracer_type,
-            tracer_args=_tracer_args,
             device=device,
-            target_dir=target_dir,
             check_residual=check_residual,
             batch_limit=batch_limit,
         )

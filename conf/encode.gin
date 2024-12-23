@@ -2,8 +2,6 @@ encode.device = "cuda"
 encode.batch_size = 128
 encode.batch_limit = 5
 encode.num_workers = 8
-encode.flush_every = 10
-encode.overwrite = False
 encode.datasets = [
     # "imagenet",
     "gtsrb",
@@ -42,6 +40,12 @@ encode.pooling_fn = @avg_pooling
 
 encode.tracer_args = {
     "raw": True,
-    "accumulate": True,
 }
+
+store_op = @SerializeResidualOp
+SerializeResidualOp.max_cached = 10
+SerializeResidualOp.root_dir = %PROJECT_ROOT
+
+encode.tracer_ops = [%store_op]
+
 encode.check_residual = True

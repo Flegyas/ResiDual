@@ -1,17 +1,20 @@
 import logging
-
 from datetime import datetime
 from typing import Optional
 
+import gin
+import lovely_tensors as lt
+from latentis import PROJECT_ROOT
 from rich.console import ConsoleRenderable
 from rich.logging import RichHandler
 from rich.traceback import Traceback
 
 from .tracing.tracer import ResidualTracer
 
-import lovely_tensors as lt
-
 lt.monkey_patch()
+
+
+gin.constant("PROJECT_ROOT", PROJECT_ROOT)
 
 
 class NNRichHandler(RichHandler):

@@ -1,6 +1,5 @@
 import functools
-from pathlib import Path
-from typing import Any, Mapping, Optional, Union
+from typing import Any, Mapping, Optional, Sequence, Union
 import torch
 from open_clip.model import VisionTransformer
 from setuptools import monkey
@@ -9,6 +8,7 @@ from torch import nn
 from residual.nn.encoder import OpenCLIPVisionEncoder
 from residual.residual import OutputProj
 from residual.tracing.tracer import ResidualTracer
+from residual.tracing.tracing_op import TracingOp
 from residual.tracing.utils import (
     apply_ln_residual,
     forward_MHA_traced,
@@ -262,10 +262,7 @@ class OpenCLIPTracer(ResidualTracer):
         module_name: str,
         encoder: OpenCLIPVisionEncoder,
         raw: bool,
-        accumulate: bool,
-        metadata: Mapping[str, Any] = {},
-        dataset_size: Optional[int] = None,
-        target_dir: Optional[Path] = None,
+        tracer_ops: Optional[Sequence[TracingOp]] = None,
     ) -> None:
         if module_name not in model_name2info:
             raise ValueError(f"Unknown model name: {module_name}")
@@ -276,18 +273,15 @@ class OpenCLIPTracer(ResidualTracer):
         super().__init__(
             module_name=module_name,
             encoder=encoder,
-            metadata=metadata,
             unit_types=("emb", "head", "mlp", "pre_ln"),
-            dataset_size=dataset_size,
             raw=raw,
             out_proj=OpenCLIPOutputProj.from_encoder(encoder=encoder),
-            accumulate=accumulate,
-            target_dir=target_dir,
             glob2fn={
                 # head will be handled by the patched multi_head_attention_forward in _enter
                 "model.ln_pre": self.emb_hook,
                 "model.transformer.resblocks.*.mlp": self.mlp_hook,
                 "model.ln_post": self.pre_ln_hook,
             },
+            tracer_ops=tracer_ops,
         )
         self.encoder: OpenCLIPVisionEncoder = self.encoder

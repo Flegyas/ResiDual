@@ -3,6 +3,7 @@ from .blip import BLIPTracer
 from .dinov2 import Dinov2Tracer
 from .openclip import OpenCLIPTracer
 from .vit import ViTTracer
+from .tracing_op import TracingOp, SerializeResidualOp
 
 encoder_name2tracer = {
     "blip_l_flickr": BLIPTracer,
@@ -22,4 +23,6 @@ __all__ = [
     "ViTTracer",
     "HFCLIPTracer",
     "encoder_name2tracer",
+    "TracingOp",
+    "SerializeResidualOp",
 ]

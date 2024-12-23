@@ -45,7 +45,7 @@ def pca_fn(
         singular_values = S[:k]
         result["weights"] = singular_values
 
-        eigenvalues = (singular_values ** 2) / (x.shape[0] - 1)
+        eigenvalues = (singular_values**2) / (x.shape[0] - 1)
         result["eigenvalues"] = eigenvalues
 
     # Optionally return the explained variance and explained variance ratio

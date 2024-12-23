@@ -1,5 +1,4 @@
-from pathlib import Path
-from typing import Any, Mapping, Optional, Tuple
+from typing import Any, Mapping, Sequence, Tuple
 
 import torch
 from torch import nn
@@ -9,6 +8,7 @@ from transformers.modeling_outputs import BaseModelOutput
 from residual.nn.encoder import HFVisionEncoder
 from residual.residual import OutputProj
 from residual.tracing.tracer import ResidualTracer
+from residual.tracing.tracing_op import TracingOp
 from residual.tracing.utils import apply_ln_residual, layer_heads_proj, single_head_proj
 
 model_name2info = {
@@ -218,22 +218,16 @@ class ViTTracer(ResidualTracer):
         module_name: str,
         encoder: HFVisionEncoder,
         raw: bool,
-        accumulate: bool,
-        dataset_size: int = None,
-        metadata: Mapping[str, Any] = None,
-        target_dir: Optional[Path] = None,
+        tracer_ops: Sequence[TracingOp] = None,
     ) -> None:
         self.info = model_name2info[module_name]
 
         super().__init__(
             module_name=module_name,
             encoder=encoder,
-            metadata=metadata,
-            dataset_size=dataset_size,
             unit_types=("emb", "head", "mlp", "pre_ln"),
             raw=raw,
             out_proj=ViTOutProj.from_encoder(encoder=encoder),
-            accumulate=accumulate,
             glob2fn=(
                 {
                     "model.embeddings": self.emb_hook,
@@ -242,6 +236,6 @@ class ViTTracer(ResidualTracer):
                     "model.layernorm": self.pre_ln_hook,
                 }
             ),
-            target_dir=target_dir,
+            tracer_ops=tracer_ops,
         )
         self.encoder: HFVisionEncoder

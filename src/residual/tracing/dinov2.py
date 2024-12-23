@@ -1,5 +1,4 @@
-from pathlib import Path
-from typing import Any, Mapping, Optional, Tuple
+from typing import Any, Mapping, Optional, Sequence, Tuple
 
 import torch
 from torch import nn
@@ -10,6 +9,7 @@ from transformers.models.dinov2.modeling_dinov2 import Dinov2LayerScale
 from residual.nn.encoder import HFVisionEncoder
 from residual.residual import OutputProj
 from residual.tracing.tracer import ResidualTracer
+from residual.tracing.tracing_op import TracingOp
 from residual.tracing.utils import apply_ln_residual, layer_heads_proj, single_head_proj
 
 model_name2info = {
@@ -234,23 +234,17 @@ class Dinov2Tracer(ResidualTracer):
         self,
         module_name: str,
         encoder: HFVisionEncoder,
-        metadata: Mapping[str, Any],
-        dataset_size: int,
         raw: bool,
-        accumulate: bool,
-        target_dir: Optional[Path] = None,
+        tracer_ops: Optional[Sequence[TracingOp]] = None,
     ) -> None:
         self.info = model_name2info[module_name]
 
         super().__init__(
             module_name=module_name,
             encoder=encoder,
-            metadata=metadata,
-            dataset_size=dataset_size,
             unit_types=("emb", "head", "mlp", "pre_ln"),
             raw=raw,
             out_proj=Dinov2OutProj.from_encoder(encoder=encoder),
-            accumulate=accumulate,
             glob2fn=(
                 {
                     "model.embeddings": self.emb_hook,
@@ -259,6 +253,6 @@ class Dinov2Tracer(ResidualTracer):
                     "model.layernorm": self.pre_ln_hook,
                 }
             ),
-            target_dir=target_dir,
+            tracer_ops=tracer_ops,
         )
         self.encoder: HFVisionEncoder
