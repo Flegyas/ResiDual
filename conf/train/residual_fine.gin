@@ -1,8 +1,8 @@
 device = "cuda"
-finetune_data = "base"
 
 encoder = @get_residual_tracer()
 encoder/get_residual_tracer.encoder_name = %encoder_name
+encoder/get_residual_tracer.pooling_fn = @cls_pooling
 
 basis_pruning = @EVRPruning()
 EVRPruning.threshold = 0.9
@@ -49,3 +49,4 @@ run.encoder_train = False
 run.adapter_train = True
 run.classifier_train = False
 run.ckpt_dir_name = "checkpoints"
+run.save_encodings = ["val", "test"]

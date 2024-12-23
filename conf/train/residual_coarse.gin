@@ -5,6 +5,7 @@ device = "cuda"
 
 encoder = @get_residual_tracer()
 encoder/get_residual_tracer.encoder_name = %encoder_name
+encoder/get_residual_tracer.pooling_fn = @cls_pooling
 
 adapter = @build_residual_coarse_adapter()
 adapter/build_residual_coarse_adapter.encoder_name = %encoder_name
@@ -43,3 +44,4 @@ run.encoder_train = False
 run.adapter_train = True
 run.classifier_train = False
 run.ckpt_dir_name = "checkpoints"
+run.save_encodings = ["val", "test"]

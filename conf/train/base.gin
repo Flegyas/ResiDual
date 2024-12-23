@@ -2,7 +2,6 @@
 # dataset_name =
 
 device = "cuda"
-finetune_data = "base"
 
 encoder = @get_vision_encoder()
 encoder/get_vision_encoder.name = %encoder_name
@@ -36,3 +35,4 @@ run.encoder_train = False
 run.adapter_train = False
 run.classifier_train = False
 run.ckpt_dir_name = "checkpoints"
+run.save_encodings = ["val", "test"]

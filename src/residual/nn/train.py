@@ -1,6 +1,7 @@
 from typing import Callable, Mapping, Optional, Sequence
 
 import gin
+from latentis.space.vector_source import HDF5Source
 import lightning as pl
 import torch
 import torch.nn.functional as F
@@ -12,6 +13,7 @@ from lightning.pytorch.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
 )
+from latentis.space import Space
 from lightning.pytorch.loggers.wandb import WandbLogger
 from schedulefree import AdamWScheduleFree
 from torch import nn
@@ -19,6 +21,7 @@ from torch.nn import ModuleDict
 from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
 
+from tqdm import tqdm
 from transformers import ViTForImageClassification
 import wandb
 from residual.data.dataset import get_dataset
@@ -110,7 +113,7 @@ class LiTModule(pl.LightningModule):
 
         logits = self.classifier(x)
 
-        return dict(logits=logits)
+        return dict(logits=logits, encoding=x)
 
     def _step(self, batch, batch_idx, stage: str):
         if hasattr(self, "optimizer"):
@@ -120,7 +123,8 @@ class LiTModule(pl.LightningModule):
         x = batch["x"]
         y = batch["y"]
 
-        logits = self.forward(x, stage=stage)["logits"]
+        model_out = self.forward(x, stage=stage)
+        logits = model_out["logits"]
 
         metrics = self.step2metrics[f"{stage}_metrics"]
 
@@ -327,6 +331,7 @@ def run(
     adapter_train: bool,
     classifier_train: bool,
     device: torch.device,
+    save_encodings: Sequence[str] = [],
     adapter: Optional[torch.nn.Module] = None,
     ckpt_dir_name: str = "checkpoints",
 ):
@@ -371,6 +376,12 @@ def run(
     train_dataset: Dataset = get_dataset(dataset_name, split="train")
     val_dataset: Dataset = get_dataset(dataset_name, split="val")
     test_dataset: Dataset = get_dataset(dataset_name, split="test")
+
+    split2dataset = {
+        "train": train_dataset,
+        "val": val_dataset,
+        "test": test_dataset,
+    }
 
     train_dataloader = DataLoader(
         dataset=train_dataset,
@@ -473,9 +484,69 @@ def run(
             train_dataloaders=train_dataloader,
             val_dataloaders=val_dataloader,
         )
+
     trainer.test(
         lit_model, dataloaders=test_dataloader, ckpt_path="best" if train else None
     )
+
+    if train:
+        best_checkpoint = torch.load(
+            trainer.checkpoint_callback.best_model_path,
+            map_location=device,
+            weights_only=True,
+        )
+        state_dict = best_checkpoint["state_dict"]
+        lit_model.load_state_dict(state_dict)
+
+    lit_model.eval()
+    lit_model.to(device)
+
+    torch.set_grad_enabled(False)
+    for split in save_encodings:
+        encodings_dir = (
+            (
+                PROJECT_ROOT
+                / "optimized_encodings"
+                / dataset_name
+                / split
+                / f"{encoder.name}_{exp_type}"
+            )
+            if save_encodings
+            else None
+        )
+
+        space = None
+
+        dataloader = DataLoader(
+            dataset=split2dataset[split],
+            collate_fn=encoder.collate_fn,
+            batch_size=batch_size,
+            pin_memory=True,
+            num_workers=num_workers,
+            shuffle=False,
+        )
+
+        for batch in tqdm(
+            dataloader, total=len(dataloader), desc=f"Saving encodings for {split}"
+        ):
+            x = batch["x"]
+            encoding = lit_model.encode(x.to(device, non_blocking=True), forward=True)
+            if space is None:
+                space = Space(
+                    vector_source=HDF5Source(
+                        shape=encoding.shape,
+                        root_dir=encodings_dir,
+                        h5py_params=dict(
+                            maxshape=(None, *encoding.shape[1:]),
+                        ),
+                    )
+                )
+            space.add_vectors(
+                vectors=encoding.cpu(), keys=batch["sample_id"], write=True
+            )
+
+        space.save_to_disk(encodings_dir)
+    torch.set_grad_enabled(True)
 
     logger.experiment.finish()
     wandb.finish()

@@ -38,3 +38,4 @@ run.encoder_train = False
 run.adapter_train = True
 run.classifier_train = False
 run.ckpt_dir_name = "checkpoints"
+run.save_encodings = ["val", "test"]
