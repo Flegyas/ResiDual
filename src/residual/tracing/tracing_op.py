@@ -9,6 +9,8 @@ from latentis.space import Space
 from latentis.space.vector_source import HDF5Source
 from torch import nn
 
+from residual.decomposition.ipca import IncrementalPCA
+
 
 class TracingOp(nn.Module):
     def __init__(self):
@@ -130,3 +132,78 @@ class SerializeResidualOp(TracingOp):
 
         if flush:
             self.cached = 0
+
+
+@gin.configurable
+class SerializePCAOp(TracingOp):
+    def __init__(
+        self,
+        root_dir: Path,
+        metadata: Mapping[str, Any],
+        k: Optional[int] = None,
+    ):
+        super(SerializePCAOp, self).__init__()
+
+        if k is not None and k <= 0:
+            raise ValueError("k must be a positive integer value or None")
+
+        self.k = k
+
+        self.target_dir = (
+            root_dir
+            / "pca_encodings"
+            / metadata["dataset"]
+            / metadata["split"]
+            / metadata["encoder"]
+        )
+
+        self.metadata = metadata
+        self.unit_type2ipca = None
+        self.initialized = False
+
+    def exit(self, tracer):
+        self.target_dir.mkdir(parents=True, exist_ok=True)
+
+        for unit_type, unit_ipca in self.unit_type2ipca.items():
+            unit_ipca: IncrementalPCA
+            torch.save(
+                unit_ipca.cpu().state_dict(), self.target_dir / f"{unit_type}_ipca.pt"
+            )
+
+        tracer.residual_composition.to_csv(
+            self.target_dir / "composition.tsv", sep="\t", index=False
+        )
+
+        # if tracer.out_proj is not None:
+        #     torch.save(tracer.out_proj.cpu(), self.target_dir / "out_proj.pt")
+
+    def _init(self, unit_type2encoding: Mapping[str, torch.Tensor]):  # noqa: F821
+        target_dir = self.target_dir
+        if target_dir.exists() and any(target_dir.glob("**/*") or []):
+            raise ValueError(
+                f"Target directory {target_dir} already exists and is not empty"
+            )
+
+        self.unit_type2ipca: Mapping[str, Space] = {
+            unit_type: IncrementalPCA(k=self.k)
+            for unit_type in unit_type2encoding.keys()
+        }
+
+        self.initialized = True
+
+    def forward(
+        self,
+        tracer,
+        unit_type2encodings: Mapping[str, torch.Tensor],
+        keys: Optional[Sequence[str]] = None,
+    ):
+        if not self.initialized:
+            self._init(unit_type2encodings)
+
+        for unit_type, unit_ipca in self.unit_type2ipca.items():
+            encoding = unit_type2encodings[unit_type]
+            n, *t, u, d = encoding.shape
+            t = t[0] if t else 1
+            encoding = encoding.view(n * t, u, d)
+            encoding = encoding.permute(1, 0, 2)  # (u, n * t, d)
+            unit_ipca.update(encoding)

@@ -1,0 +1,55 @@
+encode.device = "cuda"
+encode.batch_size = 32
+# encode.batch_limit = 5
+encode.num_workers = 8
+encode.datasets = [
+    # "imagenet",
+    # "gtsrb",
+    # "eurosat",
+    # "random",
+    "mnist",
+    # "cifar10",
+    # "cifar100",
+    # "svhn",
+    # "sun397",
+    # "sketch",
+    # "dtd",
+    # "resisc45",
+    # "stanford_cars",
+    # "pacs",
+]
+encode.splits = ["val", "test", "train"]
+encode.encoder_tracer = {
+    "vit_l": "ViTTracer",
+    # "dinov2_l": "Dinov2Tracer",
+    # "openclip_b": "OpenCLIPTracer",
+    # "openclip_l": "OpenCLIPTracer",
+    # "clip_b": "OpenCLIPTracer",
+    # "clip_l": "OpenCLIPTracer",
+    # "blip_l_flickr": "BLIPTracer",
+    # "hf_clip_l": "HFCLIPTracer",
+}
+encode.pooling_fn = None
+
+# encode.pooling_fn = @avg_pooling
+
+# encode.pooling_fn = @cls_pooling
+
+# encode.pooling_fn = @token_selection_pooling
+# token_selection_pooling.token_index = 17
+
+encode.tracer_args = {
+    "raw": False,
+}
+
+# store_op = @SerializeResidualOp
+# SerializeResidualOp.max_cached = 10
+# SerializeResidualOp.root_dir = %PROJECT_ROOT
+
+pca_op = @SerializePCAOp
+SerializePCAOp.k = None
+SerializePCAOp.root_dir = %PROJECT_ROOT
+
+encode.tracer_ops = [%pca_op]
+
+encode.check_residual = True

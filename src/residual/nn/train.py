@@ -1,28 +1,28 @@
 from typing import Callable, Mapping, Optional, Sequence
 
 import gin
-from latentis.space.vector_source import HDF5Source
 import lightning as pl
 import torch
 import torch.nn.functional as F
 import torchmetrics
 from datasets import Dataset
 from latentis import PROJECT_ROOT
+from latentis.space import Space
+from latentis.space.vector_source import HDF5Source
 from lightning.pytorch.callbacks import (
     EarlyStopping,
     LearningRateMonitor,
     ModelCheckpoint,
 )
-from latentis.space import Space
 from lightning.pytorch.loggers.wandb import WandbLogger
 from schedulefree import AdamWScheduleFree
 from torch import nn
 from torch.nn import ModuleDict
 from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
-
 from tqdm import tqdm
 from transformers import ViTForImageClassification
+
 import wandb
 from residual.data.dataset import get_dataset
 from residual.nn.adapter import (
@@ -530,7 +530,8 @@ def run(
             dataloader, total=len(dataloader), desc=f"Saving encodings for {split}"
         ):
             x = batch["x"]
-            encoding = lit_model.encode(x.to(device, non_blocking=True), forward=True)
+            encoding = lit_model.encode(x.to(device, non_blocking=True))
+
             if space is None:
                 space = Space(
                     vector_source=HDF5Source(
