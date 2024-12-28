@@ -1,6 +1,6 @@
 import functools
 import itertools
-from typing import Tuple
+from typing import Any, Mapping, Tuple
 
 from latentis.space import Space
 import torch
@@ -19,6 +19,7 @@ from residual.decomposition.unit_distance import (
 )
 from residual.nn.train import CentroidClassifier
 from residual.residual import Residual
+from residual.sparse_decomposition import SOMP
 
 datasets = [
     "dtd",
@@ -127,12 +128,23 @@ def correlation_score(residual: torch.Tensor, device: torch.device, property_enc
     return unit_scores
 
 
+def decompose(encoding: torch.Tensor, dictionary: Mapping[str, Any]):
+    decomposition = SOMP(k=64)
+    return decomposition(
+        X=encoding,
+        dictionary=F.normalize(dictionary["encodings"]),
+        descriptors=dictionary["dictionary"],
+        device=encoding.device,
+    )
+
+
 @torch.no_grad()
-def compute_ablation_scores(
+def compute_ablations(
     encoder_name: str,
     dataset_name: str,
     classifier: CentroidClassifier,
     test_dataset: Dataset,
+    decomp_dictionary,
     device: torch.device,
 ):
     fit_dataset = get_dataset(dataset_name, split="val")
@@ -321,10 +333,14 @@ def compute_ablation_scores(
             device=device,
             desc=ablation_type,
         ).item()
+        ablated_residual_decomp = decompose(
+            encoding=summed_residual, dictionary=decomp_dictionary
+        )
         ablation_results.append(
             dict(
                 ablated_shape=ablated_residual.shape,
                 score=ablated_residual_score,
+                decomp=ablated_residual_decomp,
                 type=ablation_type,
                 residual_indices=residual_indices,
                 **ablation,
@@ -349,11 +365,18 @@ def exp3(
         .eval()
     )
 
-    ablations = compute_ablation_scores(
+    decomp_dictionary = torch.load(
+        PROJECT_ROOT / "dictionaries" / "textspan" / f"{encoder_name}.pt",
+        weights_only=False,
+        map_location=device,
+    )
+
+    ablations = compute_ablations(
         encoder_name=encoder_name,
         dataset_name=dataset_name,
         classifier=classifier,
         test_dataset=test_dataset,
+        decomp_dictionary=decomp_dictionary,
         device=device,
     )
 
