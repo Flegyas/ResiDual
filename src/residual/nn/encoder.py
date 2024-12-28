@@ -22,6 +22,13 @@ def cls_pooling(x: torch.Tensor, dim: int, keep_dim: bool = True) -> torch.Tenso
 
 
 @gin.configurable
+def all_but_cls_pooling(x: torch.Tensor, dim: int) -> torch.Tensor:
+    x = x.index_select(dim, torch.arange(1, x.size(dim), device=x.device))
+
+    return x
+
+
+@gin.configurable
 def avg_pooling(
     x: torch.Tensor, dim: int, exclude_cls: bool = True, keep_dim: bool = True
 ) -> torch.Tensor:

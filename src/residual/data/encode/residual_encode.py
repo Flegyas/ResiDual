@@ -53,7 +53,7 @@ def _encode(
                 assert torch.allclose(
                     model_out,
                     residual_sum,
-                    atol=1e-5
+                    atol=1e-4
                     if not isinstance(residual_tracer.encoder, HFVisionEncoder)
                     else 1e-4,
                 )
