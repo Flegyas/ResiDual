@@ -432,9 +432,25 @@ class Residual(nn.Module):
                 [self.encoding[:, token_slice, keep_mask, :], ablated_residual], dim=2
             )
         elif aggregation == "sum":
-            residual = self.encoding[:, token_slice, keep_mask, :].sum(
-                dim=2, keepdim=True
-            ) + ablated_residual.sum(dim=2, keepdim=True)
+            memory_efficient: bool = True
+            if memory_efficient:
+                residual = torch.zeros(
+                    self.encoding.shape[0],
+                    self.encoding.shape[1] if token_index is None else 1,
+                    self.encoding.shape[3],
+                    device=self.encoding.device,
+                )
+
+                for unit_idx in keep_mask.nonzero(as_tuple=False).squeeze(dim=-1):
+                    residual.add_(self.encoding[:, token_slice, unit_idx, :])
+
+                residual.add_(ablated_residual.sum(dim=2))
+
+                residual = residual.unsqueeze(dim=2)
+            else:
+                residual = self.encoding[:, token_slice, keep_mask, :].sum(
+                    dim=2, keepdim=True
+                ) + ablated_residual.sum(dim=2, keepdim=True)
         else:
             raise ValueError(f"Invalid return mode: {aggregation}")
 
