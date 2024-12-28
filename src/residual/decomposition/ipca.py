@@ -152,20 +152,23 @@ def assert_allclose_with_info(tensor1, tensor2, atol=1e-5, message=""):
 def test_incremental_pca():
     torch.manual_seed(42)  # For reproducibility
 
+    u, n, d = 5, 10_000, 768
+    k = 5
+
     # Generate synthetic dataset
-    X = torch.randn(100_000, 768)
+    X = torch.randn(u, n, d)
 
     # Split dataset into random batch sizes for incremental updates
-    batch_limits = torch.randperm(X.size(0))[:10].sort().values
-    batch_sizes = torch.cat([batch_limits, torch.tensor([X.size(0)])]) - torch.cat(
+    batch_limits = torch.randperm(n)[:10].sort().values
+    batch_sizes = torch.cat([batch_limits, torch.tensor([n])]) - torch.cat(
         [torch.tensor([0]), batch_limits]
     )
-    batch_sizes = batch_sizes[batch_sizes > 100].tolist()
+    # batch_sizes = batch_sizes[batch_sizes > 100].tolist()
 
-    batches = torch.split(X, tuple(batch_sizes))
+    batches = torch.split(X, tuple(batch_sizes), dim=1)
 
     # Initialize Incremental PCA
-    ipca = IncrementalPCA(k=5)
+    ipca = IncrementalPCA(k=k)
 
     # Incrementally update with batches
     for batch in batches:
@@ -176,62 +179,67 @@ def test_incremental_pca():
     inc_eigenvalues = ipca_result["eigs"]
     inc_eigenvectors = ipca_result["components"]
 
-    # Compute Full PCA results
-    full_eigenvalues, full_eigenvectors = full_pca(X, n_components=5)
+    for unit_idx in range(u):
+        unit = X[unit_idx]
 
-    # Compute PCA using sklearn for validation
-    sklearn_pca = PCA(n_components=5)
-    sklearn_pca.fit(X.numpy())
-    sklearn_eigenvalues = torch.tensor(
-        sklearn_pca.explained_variance_, dtype=torch.float32
-    )
-    sklearn_eigenvectors = torch.tensor(sklearn_pca.components_.T, dtype=torch.float32)
+        # Compute Full PCA results
+        full_eigenvalues, full_eigenvectors = full_pca(unit, n_components=k)
 
-    # Compute PCA using custom pca_fn for validation
-    pca = pca_fn(x=X, k=5, return_weights=True)
-    pca_fn_eigenvalues = pca["eigenvalues"]
+        # Compute PCA using sklearn for validation
+        sklearn_pca = PCA(n_components=k)
+        sklearn_pca.fit(unit.numpy())
+        sklearn_eigenvalues = torch.tensor(
+            sklearn_pca.explained_variance_, dtype=torch.float32
+        )
+        sklearn_eigenvectors = torch.tensor(
+            sklearn_pca.components_.T, dtype=torch.float32
+        )
 
-    atol = 1e-3
+        # Compute PCA using custom pca_fn for validation
+        pca = pca_fn(x=unit, k=k, return_weights=True)
+        pca_fn_eigenvalues = pca["eigenvalues"]
 
-    # Compare eigenvalues
-    assert_allclose_with_info(
-        inc_eigenvalues,
-        full_eigenvalues,
-        atol=atol,
-        message="Eigenvalues mismatch between Incremental and Full PCA",
-    )
-    assert_allclose_with_info(
-        inc_eigenvalues,
-        sklearn_eigenvalues,
-        atol=atol,
-        message="Eigenvalues mismatch between Incremental PCA and Sklearn",
-    )
-    assert_allclose_with_info(
-        inc_eigenvalues.abs(),
-        pca_fn_eigenvalues.abs(),
-        atol=atol,
-        message="Eigenvalues mismatch between Incremental PCA and pca_fn",
-    )
+        atol = 1e-3
 
-    # Compare eigenvectors (allow sign ambiguity)
-    assert_allclose_with_info(
-        torch.abs(inc_eigenvectors),
-        torch.abs(full_eigenvectors),
-        atol=atol,
-        message="Eigenvectors mismatch between Incremental and Full PCA",
-    )
-    assert_allclose_with_info(
-        torch.abs(inc_eigenvectors),
-        torch.abs(sklearn_eigenvectors.T),
-        atol=atol,
-        message="Eigenvectors mismatch between Incremental PCA and Sklearn",
-    )
-    assert_allclose_with_info(
-        torch.abs(inc_eigenvectors),
-        torch.abs(pca["components"]),
-        atol=atol,
-        message="Eigenvectors mismatch between Incremental PCA and pca_fn",
-    )
+        # Compare eigenvalues
+        assert_allclose_with_info(
+            inc_eigenvalues[unit_idx],
+            full_eigenvalues,
+            atol=atol,
+            message="Eigenvalues mismatch between Incremental and Full PCA",
+        )
+        assert_allclose_with_info(
+            inc_eigenvalues[unit_idx],
+            sklearn_eigenvalues,
+            atol=atol,
+            message="Eigenvalues mismatch between Incremental PCA and Sklearn",
+        )
+        assert_allclose_with_info(
+            inc_eigenvalues[unit_idx].abs(),
+            pca_fn_eigenvalues.abs(),
+            atol=atol,
+            message="Eigenvalues mismatch between Incremental PCA and pca_fn",
+        )
+
+        # Compare eigenvectors (allow sign ambiguity)
+        assert_allclose_with_info(
+            torch.abs(inc_eigenvectors[unit_idx]),
+            torch.abs(full_eigenvectors),
+            atol=atol,
+            message="Eigenvectors mismatch between Incremental and Full PCA",
+        )
+        assert_allclose_with_info(
+            torch.abs(inc_eigenvectors[unit_idx]),
+            torch.abs(sklearn_eigenvectors.T),
+            atol=atol,
+            message="Eigenvectors mismatch between Incremental PCA and Sklearn",
+        )
+        assert_allclose_with_info(
+            torch.abs(inc_eigenvectors[unit_idx]),
+            torch.abs(pca["components"]),
+            atol=atol,
+            message="Eigenvectors mismatch between Incremental PCA and pca_fn",
+        )
 
     print(
         "All tests passed! Incremental PCA matches Full PCA, Sklearn PCA, and pca_fn."
