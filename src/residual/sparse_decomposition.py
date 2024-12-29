@@ -328,14 +328,20 @@ def somp(
 
     results = np.asarray(results, dtype=object)
     weights = lstsq_weights.norm(dim=1).cpu()
+    # weights = lstsq_weights.mean(dim=1).cpu()
     order = torch.argsort(weights, descending=True).cpu().numpy()
     chosen = torch.tensor(chosen).cpu()
 
+    recon = X_mean + recon
+    residual = X - recon
+
     return dict(
-        recon=(X_mean + recon).float(),
+        recon=recon.cpu().float(),
+        residual=residual.cpu().float(),
         results=results,
         chosen=chosen,
         weights=weights.float(),
+        weights_full=lstsq_weights.float().T,
         order=order,
         evr=evr.float(),
         l2=l2.float(),

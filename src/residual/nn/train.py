@@ -247,6 +247,7 @@ class CentroidClassifier(nn.Module):
             PROJECT_ROOT / "classifiers" / dataset_name / f"{encoder_name}.pt",
             weights_only=True,
         )
+        self.class_names = class_encodings["classes"]
         self.register_buffer("centroids", class_encodings["class_encodings"])
 
     @property

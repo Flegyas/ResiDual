@@ -10,7 +10,6 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from residual.data.dataset import get_dataset
 from residual.nn.encoder import Encoder, HFVisionEncoder
-from residual.nn.model_registry import get_vision_encoder
 from residual.residual import Residual
 from residual.tracing.tracer import ResidualTracer, get_registered_tracer
 from residual.tracing.tracing_op import TracingOp
@@ -62,6 +61,7 @@ def _encode(
 @gin.configurable
 def encode(
     encoder_tracer: Mapping[str, str],
+    get_encoder_fn: Callable,
     pooling_fn: Callable,
     datasets: Sequence[str],
     splits: Sequence[str],
@@ -85,7 +85,7 @@ def encode(
     ):
         pbar.set_description(f"{encoder_name} {dataset_name} {split}")
 
-        encoder = get_vision_encoder(name=encoder_name, pooling_fn=pooling_fn)
+        encoder = get_encoder_fn(name=encoder_name, pooling_fn=pooling_fn)
 
         device = torch.device(device)
 
@@ -129,7 +129,7 @@ def encode(
     pbar.close()
 
 
-if __name__ == "__main__":
+def run():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cfg", type=str, required=True)
     parser.add_argument(
@@ -140,8 +140,12 @@ if __name__ == "__main__":
     config_file = Path(args.cfg)
     assert config_file.exists(), f"Config file {config_file} does not exist."
 
-    cfg = gin.parse_config_files_and_bindings(
+    _cfg = gin.parse_config_files_and_bindings(
         [config_file], bindings=args.param, finalize_config=False
     )
 
     encode()
+
+
+if __name__ == "__main__":
+    run()

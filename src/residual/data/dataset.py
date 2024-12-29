@@ -532,6 +532,13 @@ _dataset2build_fn = {
     "pacs": build_pacs,
 }
 
+
+def register_dataset(name: str, build_fn):
+    if name in _dataset2build_fn:
+        raise ValueError(f"Dataset {name} is already registered")
+    _dataset2build_fn[name] = build_fn
+
+
 if __name__ == "__main__":
     # print(get_dataset(dataset="gtsrb")["train"].features["y"])
     pass
