@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any, Mapping, Optional
 
 import torch
@@ -8,6 +9,13 @@ from residual.nn.utils import pca_fn
 
 
 class IncrementalPCA(nn.Module):
+    @classmethod
+    def from_file(cls, path: Path, device: torch.device = "cpu"):
+        state_dict = torch.load(path, map_location=device, weights_only=True)
+        ipca = cls()
+        ipca.load_state_dict(state_dict)
+        return ipca
+
     def load_state_dict(self, state_dict: Mapping[str, Any]):
         """Custom load_state_dict to properly handle buffers"""
 
@@ -106,7 +114,7 @@ class IncrementalPCA(nn.Module):
 
         return dict(
             eigs=eigenvalues.squeeze(0),
-            components=eigenvectors.transpose(1, 2).squeeze(0).squeeze(0),
+            components=eigenvectors.permute(0, 2, 1).squeeze(0),
             mu=self.mu.squeeze(0),
         )
 

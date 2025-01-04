@@ -98,7 +98,7 @@ def normalized_spectral_cosine(
 
     C = (X @ Y.T).abs()  # abs cosine similarity
     if weights_x is None and weights_y is None:
-        weight_matrix = torch.eye(k_x, k_y)
+        weight_matrix = torch.eye(k_x, k_y, device=X.device)
     else:
         weight_matrix = torch.outer(weights_x, weights_y)
         assert weight_matrix.shape == C.shape, (weight_matrix.shape, C.shape)
