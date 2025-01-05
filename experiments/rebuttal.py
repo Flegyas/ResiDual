@@ -1,7 +1,10 @@
 import json
+from collections import defaultdict
+
 import torch
 import torch.nn.functional as F
 from latentis import PROJECT_ROOT
+from latentis.space import Space
 from tqdm import tqdm
 
 from residual.decomposition.ipca import IncrementalPCA
@@ -105,8 +108,65 @@ def cls_vs_others():
     )
 
 
+def residual_somp():
+    # SOMP on head representations from ResiDual (to analyze their specialization)
+
+    encoder_name: str = "openclip_l"
+
+    decomp_dictionary = torch.load(
+        PROJECT_ROOT / "dictionaries" / "textspan" / f"{encoder_name}.pt",
+        weights_only=False,
+        map_location=device,
+    )
+
+    for dataset in ("mnist", "gtsrb"):
+        dataset_output = defaultdict(list)
+        for exp_type in ("residual_fine", "residual_full"):
+            head_residual = Space.load_from_disk(
+                PROJECT_ROOT
+                / "optimized_encodings"
+                / dataset
+                / "test"
+                / f"{encoder_name}_{exp_type}",
+            )
+
+            output = []
+            for local_unit_idx in tqdm(
+                range(head_residual.shape[1]), desc=f"SOMP on {exp_type} {dataset}"
+            ):
+                unit_info = {
+                    "local_unit_idx": local_unit_idx,
+                }
+                unit = head_residual[:, local_unit_idx, :].to(device)
+                decomposition = SOMP(k=10)
+                decomp_out = decomposition(
+                    X=unit,
+                    dictionary=F.normalize(decomp_dictionary["encodings"]),
+                    descriptors=decomp_dictionary["dictionary"],
+                    device=device,
+                )
+                unit_info["decomposition"] = [str(x) for x in decomp_out["results"]]
+                output.append(unit_info)
+
+            dataset_output[exp_type] = output
+
+        out_file = (
+            PROJECT_ROOT
+            / "rebuttal"
+            / f"{exp_type}_head_somp_{encoder_name}_{dataset}_test.json"
+        )
+        out_file.parent.mkdir(parents=True, exist_ok=True)
+
+        json.dump(
+            dataset_output,
+            out_file.open("w", encoding="utf-8"),
+            indent=4,
+        )
+
+
 if __name__ == "__main__":
     device = "cuda"
 
     # mlp_somp()
     # cls_vs_others()
+    residual_somp()
