@@ -499,6 +499,13 @@ def run(
         state_dict = best_checkpoint["state_dict"]
         lit_model.load_state_dict(state_dict)
 
+    if hasattr(lit_model.adapter, "lambdas"):
+        lambdas = lit_model.adapter.lambdas
+        torch.save(
+            lambdas.detach().cpu(),
+            run_dir / f"{exp_type}.lambdas.pt",
+        )
+
     lit_model.eval()
     lit_model.to(device)
 
@@ -507,16 +514,28 @@ def run(
         encodings_dir = (
             (
                 PROJECT_ROOT
-                / "optimized_encodings"
+                / "optimized"
                 / dataset_name
                 / split
-                / f"{encoder.name}_{exp_type}"
+                / f"{encoder.name}_{exp_type}_encodings"
+            )
+            if save_encodings
+            else None
+        )
+        logits_dir = (
+            (
+                PROJECT_ROOT
+                / "optimized"
+                / dataset_name
+                / split
+                / f"{encoder.name}_{exp_type}_logits"
             )
             if save_encodings
             else None
         )
 
-        space = None
+        encoding_space = None
+        logits_space = None
 
         dataloader = DataLoader(
             dataset=split2dataset[split],
@@ -530,24 +549,43 @@ def run(
         for batch in tqdm(
             dataloader, total=len(dataloader), desc=f"Saving encodings for {split}"
         ):
-            x = batch["x"]
-            encoding = lit_model.encode(x.to(device, non_blocking=True))
+            x = batch["x"].to(device, non_blocking=True)
+            encoding = lit_model.encoder(x)
 
-            if space is None:
-                space = Space(
+            adapter_encoding = lit_model.adapter.encode(encoding)
+            logits = lit_model.classifier(lit_model.adapter(encoding))
+
+            assert (encoding_space is None) == (logits_space is None)
+
+            if encoding_space is None:
+                encoding_space = Space(
                     vector_source=HDF5Source(
-                        shape=encoding.shape,
+                        shape=adapter_encoding.shape,
                         root_dir=encodings_dir,
                         h5py_params=dict(
-                            maxshape=(None, *encoding.shape[1:]),
+                            maxshape=(None, *adapter_encoding.shape[1:]),
                         ),
                     )
                 )
-            space.add_vectors(
-                vectors=encoding.cpu(), keys=batch["sample_id"], write=True
+                logits_space = Space(
+                    vector_source=HDF5Source(
+                        shape=logits.shape,
+                        root_dir=logits_dir,
+                        h5py_params=dict(
+                            maxshape=(None, *logits.shape[1:]),
+                        ),
+                    )
+                )
+            encoding_space.add_vectors(
+                vectors=adapter_encoding.cpu(), keys=batch["sample_id"], write=True
+            )
+            logits_space.add_vectors(
+                vectors=logits.cpu(), keys=batch["sample_id"], write=True
             )
 
-        space.save_to_disk(encodings_dir)
+        encoding_space.save_to_disk(encodings_dir)
+        logits_space.save_to_disk(logits_dir)
+
     torch.set_grad_enabled(True)
 
     logger.experiment.finish()

@@ -1,5 +1,6 @@
 from typing import Optional
 
+import pandas as pd
 import torch
 from datasets import (
     ClassLabel,
@@ -80,7 +81,12 @@ def get_dataset(dataset: str, split: Optional[str] = None):
 
 def read_label_mapping(dataset_name: str):
     if dataset_name == "imagenet":
-        file = PROJECT_ROOT / "data" / "ImageNet_mapping.txt"
+        file = PROJECT_ROOT / "data" / "ImageNet_mapping.tsv"
+        data = pd.read_csv(file, sep="\t")
+        data = data.map(lambda x: x.strip() if isinstance(x, str) else x)
+        data = data.to_dict(orient="records")
+        data = {x["synset_id"]: x for x in data}
+        return data
         lines = file.read_text(encoding="utf-8").splitlines()
         assert len(lines) == 1000
         result = {}
