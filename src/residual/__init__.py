@@ -9,6 +9,8 @@ from rich.console import ConsoleRenderable
 from rich.logging import RichHandler
 from rich.traceback import Traceback
 
+from residual.nn.model_registry import get_vision_encoder, get_text_encoder  # noqa
+
 from .tracing.tracer import ResidualTracer
 
 lt.monkey_patch()

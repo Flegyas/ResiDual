@@ -21,7 +21,6 @@ from torch.nn import ModuleDict
 from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
 from tqdm import tqdm
-from transformers import ViTForImageClassification
 
 import wandb
 from residual.data.dataset import get_dataset
@@ -32,6 +31,7 @@ from residual.nn.encoder import (
     Encoder,
 )
 from residual.nn.model_registry import get_vision_encoder
+from residual.nn.classifier import LinearClassifier
 from residual.tracing import encoder_name2tracer
 from residual.tracing.tracer import ResidualTracer
 
@@ -226,70 +226,6 @@ class LiTModule(pl.LightningModule):
 def build_optimizer(model: "LiTModule", lr: float, **kwargs):
     optimizer = AdamWScheduleFree(model.parameters(), lr=lr, **kwargs)
     return dict(optimizer=optimizer)
-
-
-@gin.configurable
-class CentroidClassifier(nn.Module):
-    @classmethod
-    def from_tensor(cls, centroids: torch.Tensor):
-        model = cls.__new__(cls)
-        super(CentroidClassifier, model).__init__()
-        model.register_buffer("centroids", centroids)
-        return model
-
-    def __init__(
-        self,
-        encoder_name: str,
-        dataset_name: str,
-    ):
-        super().__init__()
-        class_encodings = torch.load(
-            PROJECT_ROOT / "classifiers" / dataset_name / f"{encoder_name}.pt",
-            weights_only=True,
-        )
-        self.class_names = class_encodings["classes"]
-        self.register_buffer("centroids", class_encodings["class_encodings"])
-
-    @property
-    def num_classes(self):
-        return self.centroids.shape[1]
-
-    def forward(self, x: torch.Tensor):
-        centroids = self.centroids
-
-        # x = F.normalize(x, p=2, dim=-1)
-
-        return x @ centroids
-
-
-@gin.configurable
-class ViTClassifier(nn.Module):
-    def __init__(
-        self,
-        encoder_name: str,
-    ):
-        super().__init__()
-        vit_model = ViTForImageClassification.from_pretrained(encoder_name)
-        self.linear: nn.Linear = vit_model.classifier
-
-    @property
-    def num_classes(self):
-        return self.linear.weight.shape[1]
-
-    def forward(self, x: torch.Tensor):
-        return self.linear(x)
-
-
-@gin.configurable
-class LinearClassifier(nn.Module):
-    def __init__(self, in_features: int, num_classes: int, bias: bool):
-        super().__init__()
-        self.fc = nn.Linear(
-            in_features=in_features, out_features=num_classes, bias=bias
-        )
-
-    def forward(self, x):
-        return self.fc(x)
 
 
 @gin.configurable
