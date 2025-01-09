@@ -108,6 +108,33 @@ class Residual(nn.Module):
         )
 
     @classmethod
+    @torch.no_grad()
+    def load_output(
+        cls,
+        source_dir: Path,
+        device: torch.device,
+        as_tensor_device: Optional[torch.device] = None,
+        offsets: Optional[Sequence[int]] = None,
+        verbose: bool = False,
+    ):
+        output_encoding = 0
+
+        stream = tqdm(
+            cls.stream(
+                source_dir=source_dir,
+                device=device,
+                offsets=offsets,
+                as_tensor_device=as_tensor_device,
+            ),
+            desc="Loading output",
+            disable=not verbose,
+        )
+        for unit, _unit_info in stream:
+            output_encoding += unit
+
+        return output_encoding
+
+    @classmethod
     def load(
         cls,
         source_dir: Path,
