@@ -112,11 +112,21 @@ def encode(
 
         tracer_type = get_registered_tracer(name=tracer_name)
 
+        tracer_ops = [tracer_op(metadata=metadata) for tracer_op in tracer_ops]
+
+        for tracer_op in tracer_ops:
+            if hasattr(tracer_op, "target_dir") and tracer_op.target_dir.exists():
+                print(
+                    f"Directory {tracer_op.target_dir} already exists. Skipping the whole experiment. "
+                    "(ok, maybe it would be better to skip only this tracer op)."
+                )
+                continue
+
         _encode(
             residual_tracer=tracer_type(
                 module_name=encoder_name,
                 encoder=encoder,
-                tracer_ops=[tracer_op(metadata=metadata) for tracer_op in tracer_ops],
+                tracer_ops=tracer_ops,
                 **_tracer_args,
             ),
             dataloader=dataloader,
