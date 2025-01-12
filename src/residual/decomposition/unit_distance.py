@@ -208,9 +208,12 @@ def score_unit_correlation(
     residual: torch.Tensor,
     property_encoding: Optional[torch.Tensor] = None,
     method="pearson",
+    memory_friendly: bool = False,
+    chunk_size: int = 10,
 ):
     """
-    Computes Pearson or Spearman correlation between residuals and property encodings.
+    Computes Pearson or Spearman correlation between residuals and property encodings
+    in either a standard or a more memory-friendly manner (if `memory_friendly=True`).
 
     A modified version of https://arxiv.org/abs/2406.01583
 
@@ -218,51 +221,147 @@ def score_unit_correlation(
         residual (torch.Tensor): Tensor of shape (n, r, d) representing residuals.
         property_encoding (torch.Tensor): Tensor of shape (k, d) representing property encodings.
         method (str): Correlation method, either "pearson" or "spearman". Default is "pearson".
+        memory_friendly (bool): If True, perform the correlation computation in chunks along `r`.
+        chunk_size (int): Size of each chunk to use if `memory_friendly=True`.
 
     Returns:
-        torch.Tensor: Correlation values for each residual.
+        torch.Tensor: Correlation values of shape (r,) for each residual.
     """
-    output = residual.sum(dim=1)  # Summing over the r dimension -> (n, d)
+    device = residual.device
+    dtype = residual.dtype
 
+    # 1) Sum over the r dimension to get (n, d)
+    output = residual.sum(dim=1)  # shape (n, d)
+    n, r, d = residual.shape
+
+    # 2) Handle property encodings: either an orthonormal basis or identity
     if property_encoding is not None:
-        # Orthogonalize property encodings
-        property_basis = torch.linalg.qr(property_encoding.T).Q.T
-        out_projs = (
-            output @ property_basis.T
-        )  # Projecting onto the property directions -> (n, k)
+        # Orthogonalize property encodings -> shape (k, d)
+        property_basis = torch.linalg.qr(property_encoding.T).Q.T  # (k, d)
+        k = property_basis.shape[0]
 
-        # Project each individual residual
-        unit_projs = residual @ property_basis.T  # (n, r, d) @ (d, k) -> (n, r, k)
+        # Project "output" onto property directions -> (n, k)
+        out_projs = output @ property_basis.T
+
+        # We will need to project "residual" as well, but possibly in chunks
+        def project_residual_chunk(start, end):
+            # Project the slice residual[:, start:end, :] onto property basis
+            return residual[:, start:end, :] @ property_basis.T  # (n, chunk_size, k)
+
     else:
-        # If property encodings are not provided, use the identity matrix as basis
+        # If not provided, treat as identity: out_projs = output, etc.
+        k = d
         out_projs = output
-        unit_projs = residual
 
-    # If Spearman correlation is selected, rank the projections
+        def project_residual_chunk(start, end):
+            return residual[:, start:end, :]  # (n, chunk_size, d)
+
+    # 3) Spearman rank transform helper (ranks along n-dim=0 for each [r, k])
+    def spearman_rank_transform_2d(x_2d: torch.Tensor) -> torch.Tensor:
+        """
+        Rank-transform a (n, k) 2D tensor along dim=0 independently for each column.
+        """
+        # argsort(argsort(...)) along dim=0 => "rank" for each column
+        # shape is preserved: (n, k)
+        return torch.argsort(torch.argsort(x_2d, dim=0), dim=0).float()
+
+    def spearman_rank_transform_3d(x_3d: torch.Tensor) -> torch.Tensor:
+        """
+        Rank-transform a (n, chunk_size, k) 3D tensor along dim=0
+        independently for each [r, k] slice. Returns same shape.
+        """
+        # We do this by flattening over r,k -> but PyTorch supports 3D along dim=0
+        # so we can directly do:
+        #   x_3d -> argsort along n for each (r, k)
+        # The shape is (n, chunk_size, k); we want to rank each [r, k] along n.
+        return torch.argsort(torch.argsort(x_3d, dim=0), dim=0).float()
+
+    # 4) If Spearman, rank-transform out_projs immediately (shape (n, k)).
     if method == "spearman":
-        out_projs = torch.argsort(torch.argsort(out_projs, dim=0), dim=0).float()
-        unit_projs = torch.argsort(torch.argsort(unit_projs, dim=0), dim=0).float()
+        out_projs = spearman_rank_transform_2d(out_projs)
 
-    # Mean-center the projections for Pearson correlation only
+    # 5) For Pearson, we will need the mean later
     if method == "pearson":
-        out_projs = out_projs - out_projs.mean(dim=0)
-        unit_projs = unit_projs - unit_projs.mean(dim=0, keepdims=True)
+        # Mean-center out_projs
+        out_projs = out_projs - out_projs.mean(dim=0, keepdim=True)
 
-    # Compute the covariance between out_projs and unit_projs
-    covar = (out_projs[:, None, :] * unit_projs).mean(dim=0)  # (r, k)
+    # 6) Precompute standard deviation of out_projs (shape (k,))
+    std_out_projs = out_projs.std(dim=0)  # (k,)
 
-    # Normalize to get the Pearson or Spearman correlation
-    std_out_projs = out_projs.std(dim=0)  # Standard deviation of out_projs along n
-    std_unit_projs = unit_projs.std(
-        dim=0
-    )  # Standard deviation of unit_projs for each residual
+    # 7) We'll accumulate covariance and std of unit_projs chunk by chunk
+    covar = torch.empty(r, k, device=device, dtype=dtype)
+    std_unit_projs = torch.empty(r, k, device=device, dtype=dtype)
 
-    # Compute final correlation by normalizing covariance
-    correlation = covar / (std_out_projs[None, :] * std_unit_projs)  # (r, k)
+    # Process chunks of the r dimension
+    start_idx = 0
+    while start_idx < r:
+        end_idx = min(start_idx + chunk_size, r)
+        # size = end_idx - start_idx
 
-    return correlation.mean(
-        dim=-1
-    )  # Average over k to return final result for each residual
+        # 7a) Project the chunk of residual onto property basis (or identity)
+        chunk_projs = project_residual_chunk(start_idx, end_idx)  # shape (n, size, k/d)
+
+        # 7b) If Spearman, rank-transform the chunk
+        if method == "spearman":
+            chunk_projs = spearman_rank_transform_3d(chunk_projs)  # (n, size, k)
+
+        # 7c) If Pearson, mean-center the chunk
+        if method == "pearson":
+            # subtract mean over n dimension, keeping shape (1, size, k)
+            chunk_projs = chunk_projs - chunk_projs.mean(dim=0, keepdim=True)
+
+        # 7d) Compute covariance for the chunk:
+        # covar_chunk[r_in_chunk, k] = (1/n) * sum over n of out_projs[:, k] * chunk_projs[:, r_in_chunk, k]
+        # We can use einsum or manual summation
+        # shape of out_projs is (n, k), shape of chunk_projs is (n, size, k)
+        # => covar_chunk = (size, k)
+        covar_chunk = torch.einsum("nk,nrk->rk", out_projs, chunk_projs) / float(n)
+
+        # 7e) Compute std for each (r_in_chunk, k)
+        # shape => (n, size, k) -> std over n => (size, k)
+        std_chunk = chunk_projs.std(dim=0)  # shape (size, k)
+
+        # 7f) Store in the big buffers
+        covar[start_idx:end_idx, :] = covar_chunk
+        std_unit_projs[start_idx:end_idx, :] = std_chunk
+
+        start_idx = end_idx
+
+        if not memory_friendly:
+            # If we're NOT in memory-friendly mode, we only do one pass anyway;
+            # but you can break early or skip chunking entirely if you like.
+            break
+
+    if not memory_friendly:
+        # If memory_friendly=False, we never actually chunked anything above.
+        # We just do the original (un-chunked) computation for the entire r in one pass.
+        # So let's replicate that logic exactly here.
+
+        # 1) Project entire residual: shape (n, r, k)
+        if property_encoding is not None:
+            unit_projs = residual @ property_basis.T
+        else:
+            unit_projs = residual  # shape (n, r, d)
+
+        if method == "spearman":
+            unit_projs = torch.argsort(torch.argsort(unit_projs, dim=0), dim=0).float()
+
+        if method == "pearson":
+            unit_projs = unit_projs - unit_projs.mean(dim=0, keepdim=True)
+
+        # 2) Covariance: shape (r, k)
+        covar = torch.einsum("nk,nrk->rk", out_projs, unit_projs) / float(n)
+
+        # 3) std of unit_projs: shape (r, k)
+        std_unit_projs = unit_projs.std(dim=0)
+
+    # 8) Compute correlation = covar / (std_out_projs.unsqueeze(0) * std_unit_projs)
+    #    shape => (r, k)
+    # We unsqueeze std_out_projs => shape (1, k) for broadcasting
+    correlation = covar / (std_out_projs.unsqueeze(0) * std_unit_projs)
+
+    # 9) Mean over k dimension => shape (r,)
+    return correlation.mean(dim=-1)
 
 
 if __name__ == "__main__":
