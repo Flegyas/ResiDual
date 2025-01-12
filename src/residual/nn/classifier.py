@@ -77,6 +77,11 @@ class CentroidClassifier(nn.Module):
 def build_vision_prototypical_classifier(
     dataset_name: str, split: str, encoder_name: str, device: torch.device
 ):
+    output_file = PROJECT_ROOT / "classifiers" / dataset_name / f"{encoder_name}.pt"
+    if output_file.exists():
+        print(f"Classifier for {dataset_name} {encoder_name} already exists. Skipping.")
+        return
+
     dataset: Dataset = get_dataset(dataset=dataset_name, split=split)
     dataset = dataset.with_format("torch", columns=["y"], device=device)
     encoding = Residual.load_output(
@@ -94,8 +99,6 @@ def build_vision_prototypical_classifier(
         dim=0,
     )
 
-    output_file = PROJECT_ROOT / "classifiers" / dataset_name / f"{encoder_name}.pt"
-
     data = {
         "classes": dataset.features["y"].names,
         "class_encodings": class_encodings.detach().cpu().T,
@@ -106,11 +109,19 @@ def build_vision_prototypical_classifier(
 if __name__ == "__main__":
     for dataset_name, encoder_name in itertools.product(
         [
-            "imagenet",
             "gtsrb",
             "eurosat",
             "mnist",
             "svhn",
+            "imagenet",
+            "cifar10",
+            "cifar100",
+            "sun397",
+            # "sketch",
+            "dtd",
+            "resisc45",
+            "stanford_cars",
+            # "pacs",
         ],
         ("vit_l", "dinov2_l"),
     ):
