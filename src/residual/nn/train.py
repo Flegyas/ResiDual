@@ -488,7 +488,11 @@ def run(
             x = batch["x"].to(device, non_blocking=True)
             encoding = lit_model.encoder(x)
 
-            adapter_encoding = lit_model.adapter.encode(encoding)
+            adapter_encoding = (
+                lit_model.adapter.encode(encoding)
+                if not isinstance(lit_model.adapter, nn.Identity)
+                else encoding
+            )
             logits = lit_model.classifier(lit_model.adapter(encoding))
 
             assert (encoding_space is None) == (logits_space is None)

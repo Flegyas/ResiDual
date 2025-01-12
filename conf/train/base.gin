@@ -16,7 +16,7 @@ classifier/CentroidClassifier.dataset_name = %dataset_name
 logger = @get_logger()
 logger/get_logger.entity = "resi_dual"
 logger/get_logger.project = "residual"
-logger/get_logger.tags = ["base", "cr"]
+logger/get_logger.tags = ["base", "cr", "rebuttal"]
 
 
 run.exp_type = "base"
@@ -35,4 +35,4 @@ run.encoder_train = False
 run.adapter_train = False
 run.classifier_train = False
 run.ckpt_dir_name = "checkpoints"
-run.save_encodings = ["val", "test"]
+# run.save_encodings = ["val", "test"]
