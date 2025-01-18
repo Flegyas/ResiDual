@@ -41,7 +41,7 @@ if __name__ == "__main__":
         bindings = [
             f"encoder_name='{encoder_name}'",
             f"dataset_name='{dataset_name}'",
-            'run.trainer_args={"max_epochs": 1, "fast_dev_run": False, "log_every_n_steps": 5, "limit_train_batches": 0.1, "limit_val_batches": 0.1}',
+            # 'run.trainer_args={"max_epochs": 1, "fast_dev_run": False, "log_every_n_steps": 5, "limit_train_batches": 0.1, "limit_val_batches": 0.1}',
         ]
         if exp_config_file.stem == "finetune" and "blip" in encoder_name:
             bindings.append("run.batch_size=32")

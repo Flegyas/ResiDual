@@ -17,7 +17,7 @@ from residual.data.encode import ENCODINGS_DIR
 from residual.decomposition.unit_distance import (
     score_unit_correlation,
 )
-from residual.nn.train import CentroidClassifier
+from residual.nn.classifier import CentroidClassifier
 from residual.residual import Residual
 from residual.sparse_decomposition import SOMP
 
@@ -34,6 +34,8 @@ datasets = [
     "svhn",
 ]
 models = [
+    "vit_l",
+    "dinov2_l",
     "openclip_b",
     "openclip_l",
     "clip_b",
@@ -123,6 +125,7 @@ def correlation_score(residual: torch.Tensor, device: torch.device, property_enc
         if property_enc is not None
         else residual.sum(dim=1).to(device),
         method="pearson",
+        memory_friendly=residual.size(0) > 10_000,
     ).cpu()
 
     return unit_scores
@@ -333,9 +336,14 @@ def compute_ablations(
             device=device,
             desc=ablation_type,
         ).item()
-        ablated_residual_decomp = decompose(
-            encoding=summed_residual, dictionary=decomp_dictionary
-        )
+
+        if decomp_dictionary is not None:
+            ablated_residual_decomp = decompose(
+                encoding=summed_residual, dictionary=decomp_dictionary
+            )
+        else:
+            ablated_residual_decomp = None
+
         ablation_results.append(
             dict(
                 ablated_shape=ablated_residual.shape,
@@ -365,11 +373,13 @@ def exp3(
         .eval()
     )
 
-    decomp_dictionary = torch.load(
-        PROJECT_ROOT / "dictionaries" / "textspan" / f"{encoder_name}.pt",
-        weights_only=False,
-        map_location=device,
-    )
+    dictionary_path = PROJECT_ROOT / "dictionaries" / "textspan" / f"{encoder_name}.pt"
+    if dictionary_path.exists():
+        decomp_dictionary = torch.load(
+            dictionary_path, weights_only=False, map_location=device
+        )
+    else:
+        decomp_dictionary = None
 
     ablations = compute_ablations(
         encoder_name=encoder_name,

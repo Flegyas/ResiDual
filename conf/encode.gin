@@ -1,24 +1,25 @@
 encode.device = "cuda"
 encode.batch_size = 128
-encode.batch_limit = 5
+# encode.batch_limit = 5
 encode.num_workers = 8
 encode.datasets = [
     # "imagenet",
     "gtsrb",
     "eurosat",
+    "mnist",
+    "svhn",
     # "random",
-    # "mnist",
-    # "cifar10",
-    # "cifar100",
-    # "svhn",
-    # "sun397",
+    "cifar10",
+    "cifar100",
+    "sun397",
     # "sketch",
     "dtd",
-    # "resisc45",
-    # "stanford_cars",
+    "resisc45",
+    "stanford_cars",
     # "pacs",
 ]
-encode.splits = ["val", "test", "train"]
+encode.get_encoder_fn = @get_vision_encoder
+encode.splits = ["val", "test"]
 encode.encoder_tracer = {
     # "vit_l": "ViTTracer",
     # "dinov2_l": "Dinov2Tracer",
@@ -27,13 +28,13 @@ encode.encoder_tracer = {
     # "clip_b": "OpenCLIPTracer",
     # "clip_l": "OpenCLIPTracer",
     # "blip_l_flickr": "BLIPTracer",
-    "hf_clip_l": "HFCLIPTracer",
+    # "hf_clip_l": "HFCLIPTracer",
 }
 # encode.pooling_fn = None
 
-encode.pooling_fn = @avg_pooling
+# encode.pooling_fn = @avg_pooling
 
-# encode.pooling_fn = @cls_pooling
+encode.pooling_fn = @cls_pooling
 
 # encode.pooling_fn = @token_selection_pooling
 # token_selection_pooling.token_index = 17

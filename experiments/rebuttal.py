@@ -1,3 +1,4 @@
+import itertools
 import json
 from collections import defaultdict
 
@@ -11,7 +12,7 @@ from residual.decomposition.ipca import IncrementalPCA
 from residual.decomposition.unit_distance import normalized_spectral_cosine
 from residual.nn.utils import pca_fn
 from residual.residual import Residual
-from residual.sparse_decomposition import SOMP
+from residual.sparse_decomposition import SOMP, omp, Textspan
 
 
 def mlp_somp():
@@ -91,8 +92,8 @@ def cls_vs_others():
         )
         head_info["cls_vs_others_spectral_cosine_unweighted"] = score.item()
 
-        pc_dists = head_cls_pca["components"] @ head_others_pcs.T
-        head_info["cls_vs_others_pc_cos_sim_mean"] = pc_dists.diag().mean().item()
+        pc_dists = head_cls_pca["components"][0, :] @ head_others_pcs[0, :].mT
+        head_info["cls_vs_others_first_pc_cos_sim"] = pc_dists.abs().item()
 
         result.append(head_info)
 
@@ -164,9 +165,80 @@ def residual_somp():
         )
 
 
+def ood_somp():
+    split: str = "train"
+    decomp_dictionary = torch.load(
+        PROJECT_ROOT / "dictionaries" / "textspan" / "openclip_l.pt",
+        weights_only=False,
+        map_location=device,
+    )
+
+    dictionary = F.normalize(decomp_dictionary["encodings"])
+    descriptors = decomp_dictionary["dictionary"]
+
+    for encoder_name, dataset in itertools.product(
+        ("openclip_l",),
+        ("mnist", "gtsrb"),
+    ):
+        explanations = []
+        for unit, unit_info in Residual.stream(
+            source_dir=PROJECT_ROOT / "encodings" / dataset / split / encoder_name,
+            device=device,
+            filter_fn=lambda x: x["type"] == "head" and x["layer_idx"] >= 20,
+            token_index=0,
+        ):
+            decomp_out = SOMP(k=10)(
+                X=unit,
+                dictionary=dictionary,
+                descriptors=descriptors,
+                device=device,
+            )
+            unit_info["somp_decomposition"] = [str(x) for x in decomp_out["results"]]
+
+            decomp_out = Textspan(k=10, rank=80)(
+                X=unit,
+                dictionary=dictionary,
+                descriptors=descriptors,
+                device=device,
+            )
+            unit_info["ts_decomposition"] = [str(x) for x in decomp_out["results"]]
+
+            pca_out = pca_fn(unit, return_variance=True, return_weights=True)
+            unit_info["pca_evr_1"] = pca_out["explained_variance_ratio"][0].item()
+            unit_info["participation_ratio"] = (
+                pca_out["eigenvalues"].sum() ** 2 / (pca_out["eigenvalues"] ** 2).sum()
+            ).item()
+            first_pc = pca_out["components"][0]
+
+            decomp_out = omp(
+                X=first_pc,
+                orig_X=first_pc.unsqueeze(0),
+                dictionary=dictionary,
+                descriptors=descriptors,
+                k=10,
+                device=device,
+            )
+            unit_info["omp_decomposition"] = [str(x) for x in decomp_out["results"]]
+            explanations.append(unit_info)
+
+        out_file = (
+            PROJECT_ROOT
+            / "rebuttal"
+            / f"head_explanations_{encoder_name}_{dataset}_train.json"
+        )
+        out_file.parent.mkdir(parents=True, exist_ok=True)
+
+        json.dump(
+            explanations,
+            out_file.open("w", encoding="utf-8"),
+            indent=4,
+        )
+
+
 if __name__ == "__main__":
     device = "cuda"
 
     # mlp_somp()
     # cls_vs_others()
-    residual_somp()
+    # residual_somp()
+    ood_somp()

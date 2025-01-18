@@ -1,6 +1,3 @@
-# model_name = "openclip_l"
-# dataset_name = "gtsrb"
-
 device = "cuda"
 
 encoder = @get_residual_tracer()
@@ -26,7 +23,7 @@ build_optimizer.lr = 8e-1
 logger = @get_logger()
 logger/get_logger.entity = "resi_dual"
 logger/get_logger.project = "residual"
-logger/get_logger.tags = ["residual", "coarse", "cr"]
+logger/get_logger.tags = ["residual", "coarse"]
 
 run.exp_type = "residual_coarse"
 run.dataset_name = %dataset_name

@@ -3,6 +3,7 @@ finetune_data = "base"
 
 encoder = @get_residual_tracer()
 encoder/get_residual_tracer.encoder_name = %encoder_name
+encoder/get_residual_tracer.pooling_fn = @cls_pooling
 
 # basis_pruning = @EVRPruning()
 # EVRPruning.threshold = 0.9
@@ -29,7 +30,7 @@ build_optimizer.lr = 8e-1
 logger = @get_logger()
 logger/get_logger.entity = "resi_dual"
 logger/get_logger.project = "residual"
-logger/get_logger.tags = ["residual", "full", "cr"]
+logger/get_logger.tags = ["residual", "full"]
 
 # logger = None
 

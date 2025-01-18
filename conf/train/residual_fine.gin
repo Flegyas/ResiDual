@@ -29,7 +29,7 @@ build_optimizer.lr = 8e-1
 logger = @get_logger()
 logger/get_logger.entity = "resi_dual"
 logger/get_logger.project = "residual"
-logger/get_logger.tags = ["residual", "fine", "cr"]
+logger/get_logger.tags = ["residual", "fine"]
 
 # logger = None
 
