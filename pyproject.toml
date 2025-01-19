@@ -176,5 +176,8 @@ classifiers = [
 
 ]
 
+[project.scripts]
+encode = "residual.data.encode.residual_encode:run"
+
 [project.optional-dependencies]
 test = ["pytest", "pytest-cov"]
