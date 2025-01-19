@@ -9,6 +9,7 @@ from residual.nn.train import *  # noqa
 
 if __name__ == "__main__":
     datasets = [
+        # "imagenet",
         "gtsrb",
         "mnist",
         "cifar10",
@@ -22,6 +23,8 @@ if __name__ == "__main__":
     ]
 
     models = [
+        "vit_l",
+        "dinov2_l",
         "openclip_b",
         "openclip_l",
         "clip_b",
