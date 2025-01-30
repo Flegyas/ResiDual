@@ -42,11 +42,15 @@ def pca_fn(
 
     # Optionally return the singular values (weights) and eigenvalues
     if return_weights:
-        singular_values = S[:k]
-        result["weights"] = singular_values
+        singular_values = S
 
         eigenvalues = (singular_values**2) / (x.shape[0] - 1)
-        result["eigenvalues"] = eigenvalues
+
+        participation_ratio = eigenvalues.sum() ** 2 / torch.sum(eigenvalues**2)
+
+        result["weights"] = singular_values[:k]
+        result["eigenvalues"] = eigenvalues[:k]
+        result["participation_ratio"] = participation_ratio
 
     # Optionally return the explained variance and explained variance ratio
     if return_variance:
@@ -66,7 +70,7 @@ def pca_fn(
 
     # Optionally return the mean of the input data
     if return_mean:
-        result["mean"] = x_mean
+        result["mean"] = result["mu"] = x_mean
 
     return result
 
