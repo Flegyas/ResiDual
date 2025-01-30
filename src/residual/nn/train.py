@@ -1,9 +1,10 @@
 from typing import Callable, Mapping, Optional, Sequence
-
+import numpy as np
 import gin
 import lightning as pl
 import torch
 import torch.nn.functional as F
+from torch.optim import AdamW
 import torchmetrics
 from datasets import Dataset
 from latentis import PROJECT_ROOT
@@ -226,6 +227,27 @@ class LiTModule(pl.LightningModule):
 def build_optimizer(model: "LiTModule", lr: float, **kwargs):
     optimizer = AdamWScheduleFree(model.parameters(), lr=lr, **kwargs)
     return dict(optimizer=optimizer)
+
+
+@gin.configurable
+def build_optimizer_with_cosine_scheduler(
+    model: "LiTModule", lr: float, weight_decay: float, warmup_steps: int, **kwargs
+):
+    # https://github.com/mlfoundations/task_vectors/blob/main/src/utils.py
+    optimizer = AdamW(model.parameters(), lr=lr, weight_decay=weight_decay, **kwargs)
+
+    def lr_lambda(step):
+        total_steps = model.trainer.max_steps  # Total number of steps (batches)
+
+        if step < warmup_steps:
+            return (step + 1) / warmup_steps  # Linear warmup
+        e = step - warmup_steps
+        es = total_steps - warmup_steps
+        return 0.5 * (1 + np.cos(np.pi * e / es))  # Cosine decay
+
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
+
+    return dict(optimizer=optimizer, scheduler=scheduler)
 
 
 @gin.configurable
