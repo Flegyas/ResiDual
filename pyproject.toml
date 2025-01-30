@@ -148,6 +148,7 @@ dependencies = [
     "ipykernel>=6.29.5",
     "wandb>=0.18.7",
     "lovely-tensors>=0.1.18",
+    "wilds>=2.0.0",
 ]
 
 dynamic = ["version"]
@@ -178,6 +179,7 @@ classifiers = [
 
 [project.scripts]
 encode = "residual.data.encode.residual_encode:run"
+train = "residual.nn.train:run"
 
 [project.optional-dependencies]
 test = ["pytest", "pytest-cov"]

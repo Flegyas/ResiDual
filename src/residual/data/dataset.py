@@ -1,3 +1,5 @@
+import shutil
+from pathlib import Path
 from typing import Optional
 
 import pandas as pd
@@ -15,6 +17,9 @@ from latentis.data.dataset import HFDatasetView
 from latentis.data.processor import ImageNet
 from PIL import Image as PILImage
 from torchvision.transforms import ToPILImage
+from tqdm import tqdm
+from wilds import get_dataset as wilds_get_dataset
+from wilds.datasets.waterbirds_dataset import WaterbirdsDataset
 
 from residual.data.data_registry import (
     dataset2classes_templates,
@@ -521,6 +526,73 @@ def build_pacs():
     return data
 
 
+def build_waterbirds():
+    dataset: WaterbirdsDataset = wilds_get_dataset("waterbirds", download=True)
+
+    root_dir = Path(dataset.data_dir)
+    metadata_path = root_dir / "metadata.csv"
+
+    metadata = pd.read_csv(metadata_path)
+
+    splits = {
+        "train": metadata[metadata["split"] == 0],
+        "val": metadata[metadata["split"] == 1],
+        "test": metadata[metadata["split"] == 2],
+    }
+
+    # Function to process each split without transformations
+    def process_split(df):
+        data = {"image": [], "label": [], "background": [], "filename": []}
+
+        for _, row in tqdm(df.iterrows(), total=len(df)):
+            image_path = root_dir / row["img_filename"]
+            label = int(row["y"])  # Bird type: 0 (landbird), 1 (waterbird)
+            background = int(row["place"])  # 0 (land), 1 (water)
+
+            img = PILImage.open(image_path)
+
+            data["image"].append(img)
+            data["label"].append(label)
+            data["background"].append(background)
+            data["filename"].append(row["img_filename"])
+
+        return Dataset.from_dict(data)
+
+    hf_dataset = DatasetDict(
+        {
+            "train": process_split(splits["train"]),
+            "val": process_split(splits["val"]),
+            "test": process_split(splits["test"]),
+        }
+    )
+
+    hf_dataset = hf_dataset.rename_columns({"image": "x", "label": "y"})
+    hf_dataset = hf_dataset.cast_column(
+        "y",
+        ClassLabel(
+            num_classes=2,
+            names=["landbird", "waterbird"],
+        ),
+    )
+    hf_dataset = hf_dataset.cast_column(
+        "background", ClassLabel(num_classes=2, names=["land", "water"])
+    )
+
+    hf_dataset = hf_dataset.map(
+        lambda batch, indices: {
+            "sample_id": [str(i) for i in indices],
+        },
+        batched=True,
+        with_indices=True,
+    )
+
+    hf_dataset.save_to_disk(str(PROJECT_ROOT / "data" / "waterbirds"))
+
+    shutil.rmtree(root_dir)
+
+    return hf_dataset
+
+
 _dataset2build_fn = {
     "imagenet": build_imagenet,
     "sketch": build_sketch,
@@ -536,6 +608,7 @@ _dataset2build_fn = {
     "resisc45": build_resisc45,
     "stanford_cars": build_stanford_cars,
     "pacs": build_pacs,
+    "waterbirds": build_waterbirds,
 }
 
 
@@ -547,4 +620,4 @@ def register_dataset(name: str, build_fn):
 
 if __name__ == "__main__":
     # print(get_dataset(dataset="gtsrb")["train"].features["y"])
-    pass
+    build_waterbirds()
