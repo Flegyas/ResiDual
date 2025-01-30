@@ -51,6 +51,19 @@ def token_selection_pooling(
     return x
 
 
+_name2pooling_fn = {
+    "identity": identity_pooling,
+    "cls": cls_pooling,
+    "all_but_cls": all_but_cls_pooling,
+    "avg": avg_pooling,
+    "token_selection": token_selection_pooling,
+}
+
+
+def get_pooling_fn(pooling_fn_name: str) -> Callable:
+    return _name2pooling_fn[pooling_fn_name]
+
+
 class Encoder(nn.Module):
     def __init__(
         self,
@@ -68,6 +81,10 @@ class Encoder(nn.Module):
         self.preprocess = preprocess
         self.pooling_fn = pooling_fn if pooling_fn is not None else identity_pooling
         self._encoding_dim = encoding_dim
+
+    @property
+    def logit_scale(self):
+        return self.model.logit_scale
 
     @property
     def encoding_dim(self):

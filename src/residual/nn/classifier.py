@@ -1,12 +1,19 @@
 import itertools
-from datasets import Dataset
+from pathlib import Path
+from typing import Sequence
+
 import gin
 import torch
+import torch.nn.functional as F
+from datasets import Dataset
 from latentis import PROJECT_ROOT
 from torch import nn
 from transformers import ViTForImageClassification
 
+from residual.data.data_registry import dataset2classes_templates
 from residual.data.dataset import get_dataset
+from residual.nn.encoder import Encoder
+from residual.nn.model_registry import get_text_encoder
 from residual.residual import Residual
 
 
@@ -42,25 +49,34 @@ class ViTClassifier(nn.Module):
 
 @gin.configurable
 class CentroidClassifier(nn.Module):
+    # @classmethod
+    # def from_tensor(cls, centroids: torch.Tensor):
+    #     model = cls.__new__(cls)
+    #     super(CentroidClassifier, model).__init__()
+    #     model.register_buffer("centroids", centroids)
+    #     return model
+
     @classmethod
-    def from_tensor(cls, centroids: torch.Tensor):
-        model = cls.__new__(cls)
-        super(CentroidClassifier, model).__init__()
-        model.register_buffer("centroids", centroids)
-        return model
+    def from_file(cls, file: Path, x_normalize: bool = True):
+        class_encodings = torch.load(file, weights_only=True)
+
+        return cls(
+            class_names=class_encodings["classes"],
+            centroids=class_encodings["class_encodings"],
+            x_normalize=x_normalize,
+        )
 
     def __init__(
         self,
-        encoder_name: str,
-        dataset_name: str,
+        class_names: Sequence[str],
+        centroids: torch.Tensor,
+        x_normalize: bool = True,
     ):
         super().__init__()
-        class_encodings = torch.load(
-            PROJECT_ROOT / "classifiers" / dataset_name / f"{encoder_name}.pt",
-            weights_only=True,
-        )
-        self.class_names = class_encodings["classes"]
-        self.register_buffer("centroids", class_encodings["class_encodings"])
+
+        self.class_names = class_names
+        self.register_buffer("centroids", centroids)
+        self.register_buffer("x_normalize", torch.tensor(x_normalize, dtype=torch.bool))
 
     @property
     def num_classes(self):
@@ -69,9 +85,56 @@ class CentroidClassifier(nn.Module):
     def forward(self, x: torch.Tensor):
         centroids = self.centroids
 
-        # x = F.normalize(x, p=2, dim=-1)
+        if self.x_normalize:
+            x = F.normalize(x, p=2, dim=-1)
 
         return x @ centroids
+
+
+@torch.no_grad()
+@gin.configurable
+def build_centroid_classifier(
+    encoder_name: str,
+    dataset_name: str,
+    device: torch.device,
+    root_dir=PROJECT_ROOT,
+    x_normalize=True,
+):
+    output_dir = root_dir / "classifiers" / dataset_name
+
+    try:
+        classes, templates = dataset2classes_templates[dataset_name]  # noqa: F821
+    except KeyError:
+        raise ValueError(f"Dataset {dataset_name} not supported.") from None
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_file = output_dir / f"{encoder_name}.pt"
+    if not output_file.exists():
+        encoder: Encoder = get_text_encoder(name=encoder_name).to(device)
+
+        class_encodings = []
+        for classname in classes:
+            batch = encoder.preprocess([template(classname) for template in templates])
+
+            class_embedding = encoder.encode_text(x=batch.to(device))
+            class_embedding = F.normalize(class_embedding, dim=-1).mean(dim=0)
+            class_embedding /= class_embedding.norm()
+
+            class_encodings.append(class_embedding.detach().cpu())
+        class_encodings = torch.stack(class_encodings, dim=1)
+
+        class_encodings = class_encodings * encoder.logit_scale.exp().cpu()
+
+        data = {
+            "classes": classes,
+            "class_encodings": class_encodings.detach().cpu(),
+        }
+        torch.save(data, output_file)
+
+    return CentroidClassifier.from_file(
+        output_file,
+        x_normalize=x_normalize,
+    )
 
 
 def build_vision_prototypical_classifier(

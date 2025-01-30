@@ -1,6 +1,6 @@
 from collections import defaultdict
 from functools import partial
-from typing import Any, Callable, Mapping, Type
+from typing import Any, Callable, Mapping, Type, Union
 
 import gin
 import open_clip
@@ -26,6 +26,7 @@ from residual.nn.encoder import (
     HFVisionEncoder,
     OpenCLIPTextEncoder,
     OpenCLIPVisionEncoder,
+    get_pooling_fn,
 )
 
 modality2model_name2entry = {}
@@ -176,9 +177,11 @@ def _collate_fn_image(samples, preprocess, library: str):
 
 
 @gin.configurable
-def get_vision_encoder(name: str, pooling_fn: Callable) -> Encoder:
+def get_vision_encoder(name: str, pooling_fn: Union[Callable, str]) -> Encoder:
     if name not in modality2model_name2entry["vision"]:
         raise ValueError(f"Model {name} not supported in registry")
+
+    pooling_fn = pooling_fn if callable(pooling_fn) else get_pooling_fn(pooling_fn)
 
     entry = modality2model_name2entry["vision"][name]
 
