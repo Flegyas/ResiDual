@@ -8,6 +8,7 @@ import torch
 from latentis import PROJECT_ROOT
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+
 from residual.data.dataset import get_dataset
 from residual.nn.encoder import Encoder, HFVisionEncoder
 from residual.residual import Residual

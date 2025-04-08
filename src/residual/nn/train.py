@@ -1,11 +1,12 @@
 from typing import Callable, Mapping, Optional, Sequence
-import numpy as np
+
 import gin
 import lightning as pl
+import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.optim import AdamW
 import torchmetrics
+import wandb
 from datasets import Dataset
 from latentis import PROJECT_ROOT
 from latentis.space import Space
@@ -19,20 +20,20 @@ from lightning.pytorch.loggers.wandb import WandbLogger
 from schedulefree import AdamWScheduleFree
 from torch import nn
 from torch.nn import ModuleDict
+from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
 from tqdm import tqdm
 
-import wandb
 from residual.data.dataset import get_dataset
 from residual.nn.adapter import (
     Adapter,
 )
+from residual.nn.classifier import LinearClassifier
 from residual.nn.encoder import (
     Encoder,
 )
 from residual.nn.model_registry import get_vision_encoder
-from residual.nn.classifier import LinearClassifier
 from residual.tracing import encoder_name2tracer
 from residual.tracing.tracer import ResidualTracer
 
@@ -140,7 +141,7 @@ class LiTModule(pl.LightningModule):
                 self.log(f"{stage}/{k}", v, prog_bar=True, batch_size=x.shape[0])
                 loss = loss + v
 
-        if stage == "train":
+        if stage == "train":  # noqa: SIM102
             if hasattr(self.adapter, "lambdas"):
                 wandb.log(
                     {

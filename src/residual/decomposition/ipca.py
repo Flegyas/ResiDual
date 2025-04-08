@@ -43,7 +43,7 @@ class IncrementalPCA(nn.Module):
         Args:
             k (int, optional): Number of principal components to compute. If None, compute all components.
         """
-        super(IncrementalPCA, self).__init__()
+        super().__init__()
 
         self.register_buffer("k", torch.tensor(k) if k is not None else None)
         self.register_buffer("mu", None)

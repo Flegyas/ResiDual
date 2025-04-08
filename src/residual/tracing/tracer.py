@@ -3,7 +3,6 @@ from typing import Mapping, Sequence, Type
 
 import pandas as pd
 import torch
-
 from torch import nn
 
 from residual.nn.encoder import Encoder

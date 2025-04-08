@@ -1,5 +1,6 @@
 import functools
 from typing import Any, Mapping, Optional, Sequence, Union
+
 import torch
 from open_clip.model import VisionTransformer
 from setuptools import monkey

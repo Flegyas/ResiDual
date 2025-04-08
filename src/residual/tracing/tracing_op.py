@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import gin
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Mapping, Sequence
 
+import gin
 import torch
 from latentis.space import Space
 from latentis.space.vector_source import HDF5Source
@@ -14,7 +14,7 @@ from residual.decomposition.ipca import IncrementalPCA
 
 class TracingOp(nn.Module):
     def __init__(self):
-        super(TracingOp, self).__init__()
+        super().__init__()
 
 
 @gin.configurable
@@ -25,7 +25,7 @@ class SerializeResidualOp(TracingOp):
         root_dir: Path,
         metadata: Mapping[str, Any],
     ):
-        super(SerializeResidualOp, self).__init__()
+        super().__init__()
 
         self.max_cached = max_cached
         self.cached = 0
@@ -117,7 +117,7 @@ class SerializeResidualOp(TracingOp):
         self,
         tracer,
         unit_type2encodings: Mapping[str, torch.Tensor],
-        keys: Optional[Sequence[str]] = None,
+        keys: Sequence[str] = None,
     ):
         if not self.initialized:
             self._init(unit_type2encodings)
@@ -140,9 +140,9 @@ class SerializePCAOp(TracingOp):
         self,
         root_dir: Path,
         metadata: Mapping[str, Any],
-        k: Optional[int] = None,
+        k: int = None,
     ):
-        super(SerializePCAOp, self).__init__()
+        super().__init__()
 
         if k is not None and k <= 0:
             raise ValueError("k must be a positive integer value or None")
@@ -195,7 +195,7 @@ class SerializePCAOp(TracingOp):
         self,
         tracer,
         unit_type2encodings: Mapping[str, torch.Tensor],
-        keys: Optional[Sequence[str]] = None,
+        keys: Sequence[str] = None,
     ):
         if not self.initialized:
             self._init(unit_type2encodings)

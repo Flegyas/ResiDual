@@ -1,9 +1,9 @@
-from .hf_clip import HFCLIPTracer
 from .blip import BLIPTracer
 from .dinov2 import Dinov2Tracer
+from .hf_clip import HFCLIPTracer
 from .openclip import OpenCLIPTracer
+from .tracing_op import SerializeResidualOp, TracingOp
 from .vit import ViTTracer
-from .tracing_op import TracingOp, SerializeResidualOp
 
 encoder_name2tracer = {
     "blip_l_flickr": BLIPTracer,
