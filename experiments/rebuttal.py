@@ -12,7 +12,7 @@ from residual.decomposition.ipca import IncrementalPCA
 from residual.decomposition.unit_distance import normalized_spectral_cosine
 from residual.nn.utils import pca_fn
 from residual.residual import Residual
-from residual.sparse_decomposition import SOMP, omp, Textspan
+from residual.sparse_decomposition import SOMP, Textspan, omp
 
 
 def mlp_somp():

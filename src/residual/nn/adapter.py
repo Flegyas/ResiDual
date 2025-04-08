@@ -9,8 +9,7 @@ from torch.nn.utils.rnn import pad_sequence
 
 from residual.data.encode import ENCODINGS_DIR
 from residual.nn.encoder import Encoder
-from residual.nn.utils import Pruning
-from residual.nn.utils import KPruning, pca_fn
+from residual.nn.utils import KPruning, Pruning, pca_fn
 from residual.residual import Residual
 
 

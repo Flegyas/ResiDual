@@ -1,4 +1,5 @@
 from typing import Optional
+
 import gin
 import torch
 from torch import nn

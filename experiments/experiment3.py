@@ -2,11 +2,11 @@ import functools
 import itertools
 from typing import Any, Mapping, Tuple
 
-from latentis.space import Space
 import torch
 import torch.nn.functional as F
 from datasets import Dataset
 from latentis import PROJECT_ROOT
+from latentis.space import Space
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 from torchmetrics import Accuracy

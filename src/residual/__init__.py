@@ -9,7 +9,7 @@ from rich.console import ConsoleRenderable
 from rich.logging import RichHandler
 from rich.traceback import Traceback
 
-from residual.nn.model_registry import get_vision_encoder, get_text_encoder  # noqa
+from residual.nn.model_registry import get_text_encoder, get_vision_encoder  # noqa
 
 from .tracing.tracer import ResidualTracer
 

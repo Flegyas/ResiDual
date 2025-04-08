@@ -5,18 +5,18 @@ from pathlib import Path
 from typing import Sequence
 
 import gin
+import pandas as pd
 import torch
 from latentis import PROJECT_ROOT
 from tqdm import tqdm
-import pandas as pd
 
 from residual.data.encode import ENCODINGS_DIR
 from residual.decomposition.unit_distance import (
+    avg_correlation,
     avg_cosine,
     compute_spectral_distances,
-    relative_avg_correlation,
-    avg_correlation,
     euclidean_avg,
+    relative_avg_correlation,
     relative_avg_cosine,
 )
 from residual.residual import Residual, heads2pca

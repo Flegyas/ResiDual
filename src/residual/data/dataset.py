@@ -72,14 +72,16 @@ def get_dataset(dataset: str, split: Optional[str] = None):
     if split is not None:
         data = data[split]
 
-    if not isinstance(data, torch.Tensor):
-        if (
+    if not isinstance(data, torch.Tensor) and (
+        (
             isinstance(data, DatasetDict)
             and "sample_id" not in data["train"].column_names
-        ) or (isinstance(data, Dataset) and "sample_id" not in data.column_names):
-            data = data.map(
-                lambda x, i: {"sample_id": str(i)}, with_indices=True, batched=True
-            )
+        )
+        or (isinstance(data, Dataset) and "sample_id" not in data.column_names)
+    ):
+        data = data.map(
+            lambda x, i: {"sample_id": str(i)}, with_indices=True, batched=True
+        )
 
     return data
 

@@ -4,10 +4,11 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Sequence
 
+import gin
 import torch
 from latentis import PROJECT_ROOT
 from tqdm import tqdm
-import gin
+
 from residual.data.dataset import get_dataset
 from residual.data.encode import ENCODINGS_DIR
 from residual.intrinsic_dimensionality import twoNN

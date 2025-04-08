@@ -63,8 +63,7 @@ target-version = "py38"
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
 # McCabe complexity (`C901`) by default.
 # select = B,C,E,F,P,T4,W,B9
-select = ["E4", "E7", "E9", "F", "B", "W"]
-ignore = ["E203", "E501"]
+ignore = ["E203", "E501", "SIM118"]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
@@ -73,6 +72,20 @@ unfixable = []
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
 quote-style = "double"
